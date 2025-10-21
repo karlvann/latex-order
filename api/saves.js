@@ -1,5 +1,6 @@
 // Vercel Serverless Function for Save/Load with Vercel KV
 // Integrated with Upstash Redis via Vercel Marketplace
+// Enables cloud save sync across devices
 import { kv } from '@vercel/kv';
 
 const NUM_SLOTS = 5;
