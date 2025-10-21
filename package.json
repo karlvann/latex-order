@@ -12,6 +12,7 @@
   "license": "ISC",
   "description": "Latex Mattress Order System - Inventory Management",
   "dependencies": {
+    "@vercel/kv": "^3.0.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

@@ -1,8 +1,13 @@
 // Storage adapter for save/load functionality
-// Uses localStorage in development
+// Uses localStorage in development, Vercel KV in production
 
 const STORAGE_PREFIX = 'latex_order_save_';
 const NUM_SLOTS = 5;
+
+// Detect if running in production (Vercel)
+const isProduction = () => {
+  return typeof window !== 'undefined' && window.location.hostname !== 'localhost';
+};
 
 // Initialize empty save slot
 const createEmptySlot = (slotNumber) => ({
@@ -11,7 +16,7 @@ const createEmptySlot = (slotNumber) => ({
   data: null
 });
 
-// === LocalStorage Implementation ===
+// === LocalStorage Implementation (Dev) ===
 
 const localStorageAdapter = {
   async listSaves() {
@@ -83,9 +88,62 @@ const localStorageAdapter = {
   }
 };
 
+// === Vercel KV Implementation (Production) ===
+
+const vercelKVAdapter = {
+  async listSaves() {
+    const response = await fetch('/api/saves');
+    if (!response.ok) {
+      throw new Error('Failed to list saves');
+    }
+    return response.json();
+  },
+
+  async loadSave(slot) {
+    const response = await fetch(`/api/saves?slot=${slot}`);
+    if (!response.ok) {
+      throw new Error(`Failed to load save from slot ${slot}`);
+    }
+    return response.json();
+  },
+
+  async saveSave(slot, data) {
+    const response = await fetch(`/api/saves?slot=${slot}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data })
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to save to slot ${slot}`);
+    }
+    return response.json();
+  },
+
+  async updateSlotName(slot, name) {
+    const response = await fetch(`/api/saves?slot=${slot}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to update slot ${slot} name`);
+    }
+    return response.json();
+  },
+
+  async deleteSave(slot) {
+    const response = await fetch(`/api/saves?slot=${slot}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to delete save from slot ${slot}`);
+    }
+  }
+};
+
 // === Export unified interface ===
 
-const storage = localStorageAdapter;
+const storage = isProduction() ? vercelKVAdapter : localStorageAdapter;
 
 export const listSaves = () => storage.listSaves();
 export const loadSave = (slot) => storage.loadSave(slot);
