@@ -15,6 +15,7 @@ import InventoryMix from './components/InventoryMix';
 import HealthAlert from './components/HealthAlert';
 import InventoryEditor from './components/InventoryEditor';
 import ForecastTable from './components/ForecastTable';
+import SaveLoadPanel from './components/SaveLoadPanel';
 
 function App() {
   const [inventory, setInventory] = useState(DEFAULT_INVENTORY);
@@ -75,6 +76,11 @@ function App() {
     URL.revokeObjectURL(url);
   };
 
+  const handleLoadSave = (saveData) => {
+    setInventory(saveData.inventory);
+    setAnnualRevenue(saveData.annualRevenue);
+  };
+
   const formatAnnualRevenue = (value) => {
     const millions = value / 1000000;
     return millions % 1 === 0 ? `$${millions}M` : `$${millions.toFixed(2)}M`.replace('.00', '').replace(/(\.\d)0$/, '$1');
@@ -94,6 +100,13 @@ function App() {
       </header>
 
       <main style={styles.main}>
+        {/* Save/Load Panel */}
+        <SaveLoadPanel
+          inventory={inventory}
+          annualRevenue={annualRevenue}
+          onLoad={handleLoadSave}
+        />
+
         {/* Revenue Selector */}
         <div style={styles.revenueSection}>
           <div style={styles.revenueHeader}>
