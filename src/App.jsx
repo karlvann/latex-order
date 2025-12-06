@@ -132,6 +132,8 @@ function App() {
           <div style={styles.brandRow}>
             <span style={styles.brandName}>AusBeds</span>
             <span style={styles.brandDivider}>|</span>
+            <span style={styles.countryBadge}>SRI LANKA</span>
+            <span style={styles.brandDivider}>|</span>
             <span style={styles.appName}>Latex Order</span>
           </div>
           <div style={styles.subtitle}>40-Foot Container | Coverage-Equalized Ordering</div>
@@ -265,13 +267,23 @@ const styles = {
   brandName: {
     fontSize: '18px',
     fontWeight: '700',
-    color: '#3b82f6',
+    color: '#d97706',
     letterSpacing: '-0.3px'
   },
   brandDivider: {
     fontSize: '18px',
     color: '#3f3f46',
     fontWeight: '300'
+  },
+  countryBadge: {
+    padding: '3px 10px',
+    background: 'rgba(217, 119, 6, 0.2)',
+    border: '1px solid rgba(217, 119, 6, 0.4)',
+    borderRadius: '4px',
+    fontSize: '10px',
+    fontWeight: '700',
+    letterSpacing: '0.8px',
+    color: '#fbbf24'
   },
   appName: {
     fontSize: '18px',
@@ -307,7 +319,7 @@ const styles = {
     fontWeight: '600',
     cursor: 'pointer',
     background: '#18181b',
-    color: '#60a5fa',
+    color: '#fbbf24',
     transition: 'all 0.2s',
     display: 'flex',
     alignItems: 'center',
@@ -357,7 +369,7 @@ const styles = {
     fontSize: '16px',
     fontWeight: '600',
     background: '#0a0a0a',
-    border: '2px solid #3b82f6',
+    border: '2px solid #d97706',
     borderRadius: '8px',
     color: '#fafafa',
     cursor: 'pointer',
