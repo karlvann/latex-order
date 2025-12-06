@@ -11,13 +11,15 @@ function SaveLoadPanel({ inventory, annualRevenue, onLoad, currentSave, onSaveCr
   const fetchSaves = useCallback(async () => {
     setError(null);
     try {
-      const res = await fetch('/api/saves?' + Date.now()); // Cache bust
-      if (!res.ok && res.status !== 304) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Failed to load saves');
-      }
+      const res = await fetch('/api/saves?' + Date.now());
       const data = await res.json();
-      setSaves(data);
+      console.log('Fetched saves:', data);
+      if (Array.isArray(data)) {
+        setSaves(data);
+      } else {
+        console.error('Unexpected response:', data);
+        setError('Invalid response from server');
+      }
     } catch (err) {
       console.error('Failed to fetch saves:', err);
       setError('Could not load saves. Check your connection.');
