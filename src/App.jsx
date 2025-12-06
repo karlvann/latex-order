@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   SIZES,
   FIRMNESSES,
@@ -21,6 +21,32 @@ function App() {
   const [inventory, setInventory] = useState(DEFAULT_INVENTORY);
   const [containerSize, setContainerSize] = useState(DEFAULT_CONTAINER_SIZE);
   const [annualRevenue, setAnnualRevenue] = useState(DEFAULT_ANNUAL_REVENUE);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Auto-load the most recent save on startup
+  useEffect(() => {
+    const loadLastSave = async () => {
+      try {
+        const res = await fetch('/api/saves');
+        if (res.ok) {
+          const saves = await res.json();
+          if (saves.length > 0) {
+            const latest = saves[0]; // Already sorted by created_at DESC
+            if (latest.inventory) {
+              setInventory(latest.inventory);
+            }
+            if (latest.annual_revenue) {
+              setAnnualRevenue(latest.annual_revenue);
+            }
+          }
+        }
+      } catch (err) {
+        console.log('No saved state to restore');
+      }
+      setIsLoaded(true);
+    };
+    loadLastSave();
+  }, []);
 
   // Calculate scaled usage rates based on selected annual revenue
   const usageRates = useMemo(() => {
