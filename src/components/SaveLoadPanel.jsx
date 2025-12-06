@@ -13,7 +13,6 @@ function SaveLoadPanel({ inventory, annualRevenue, onLoad, currentSave, onSaveCr
     try {
       const res = await fetch('/api/saves?' + Date.now());
       const data = await res.json();
-      console.log('Fetched saves:', data);
       if (Array.isArray(data)) {
         setSaves(data);
       } else {
