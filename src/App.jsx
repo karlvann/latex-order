@@ -28,7 +28,7 @@ function App() {
   useEffect(() => {
     const loadLastSave = async () => {
       try {
-        const res = await fetch('/api/saves', { cache: 'no-cache' });
+        const res = await fetch('/api/saves?' + Date.now()); // Cache bust
         if (res.ok) {
           const saves = await res.json();
           if (saves.length > 0) {

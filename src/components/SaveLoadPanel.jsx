@@ -11,9 +11,7 @@ function SaveLoadPanel({ inventory, annualRevenue, onLoad, currentSave, onSaveCr
   const fetchSaves = useCallback(async () => {
     setError(null);
     try {
-      const res = await fetch('/api/saves', {
-        cache: 'no-cache' // Prevent 304 caching issues
-      });
+      const res = await fetch('/api/saves?' + Date.now()); // Cache bust
       if (!res.ok && res.status !== 304) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || 'Failed to load saves');
