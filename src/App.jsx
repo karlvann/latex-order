@@ -24,6 +24,7 @@ function App() {
   const [annualRevenue, setAnnualRevenue] = useState(DEFAULT_ANNUAL_REVENUE);
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentSave, setCurrentSave] = useState(null); // Track loaded save
+  const [showSavePanel, setShowSavePanel] = useState(false);
 
   // Auto-load the most recent save on startup
   useEffect(() => {
@@ -127,23 +128,45 @@ function App() {
   return (
     <div style={styles.app}>
       <header style={styles.header}>
-        <div style={styles.brandRow}>
-          <span style={styles.brandName}>AusBeds</span>
-          <span style={styles.brandDivider}>|</span>
-          <span style={styles.appName}>Latex Order</span>
+        <div>
+          <div style={styles.brandRow}>
+            <span style={styles.brandName}>AusBeds</span>
+            <span style={styles.brandDivider}>|</span>
+            <span style={styles.appName}>Latex Order</span>
+          </div>
+          <div style={styles.subtitle}>40-Foot Container | Coverage-Equalized Ordering</div>
         </div>
-        <p style={styles.subtitle}>40-Foot Container | Coverage-Equalized Ordering</p>
+
+        <div style={styles.headerActions}>
+          {currentSave && (
+            <div style={styles.currentSaveIndicator}>
+              <span style={styles.currentSaveName}>{currentSave.name}</span>
+            </div>
+          )}
+          <button
+            onClick={() => setShowSavePanel(!showSavePanel)}
+            style={styles.saveButton}
+          >
+            <span>💾</span>
+            <span>Save/Load</span>
+          </button>
+        </div>
       </header>
 
+      {/* Save/Load Panel - Slides down from header */}
+      {showSavePanel && (
+        <div style={styles.savePanelContainer}>
+          <SaveLoadPanel
+            inventory={inventory}
+            annualRevenue={annualRevenue}
+            onLoad={handleLoadSave}
+            currentSave={currentSave}
+            onSaveCreated={(save) => setCurrentSave({ name: save.name, date: save.created_at })}
+          />
+        </div>
+      )}
+
       <main style={styles.main}>
-        {/* Save/Load Panel */}
-        <SaveLoadPanel
-          inventory={inventory}
-          annualRevenue={annualRevenue}
-          onLoad={handleLoadSave}
-          currentSave={currentSave}
-          onSaveCreated={(save) => setCurrentSave({ name: save.name, date: save.created_at })}
-        />
 
         {/* Revenue Selector */}
         <div style={styles.revenueSection}>
@@ -221,39 +244,80 @@ const styles = {
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
   },
   header: {
-    padding: '24px 24px 20px',
-    textAlign: 'center',
+    position: 'sticky',
+    top: 0,
+    height: '64px',
+    background: 'rgba(17, 17, 19, 0.95)',
+    backdropFilter: 'blur(8px)',
     borderBottom: '1px solid #1f1f23',
-    background: 'linear-gradient(180deg, #111113 0%, #0a0a0b 100%)'
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '0 24px',
+    zIndex: 1000
   },
   brandRow: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: '12px',
-    marginBottom: '6px'
+    gap: '10px',
+    marginBottom: '2px'
   },
   brandName: {
-    fontSize: '24px',
+    fontSize: '18px',
     fontWeight: '700',
     color: '#3b82f6',
-    letterSpacing: '-0.5px'
+    letterSpacing: '-0.3px'
   },
   brandDivider: {
-    fontSize: '24px',
+    fontSize: '18px',
     color: '#3f3f46',
     fontWeight: '300'
   },
   appName: {
-    fontSize: '24px',
+    fontSize: '18px',
     fontWeight: '600',
     color: '#e5e5e5',
-    letterSpacing: '-0.5px'
+    letterSpacing: '-0.3px'
   },
   subtitle: {
     margin: 0,
-    fontSize: '13px',
+    fontSize: '11px',
     color: '#71717a'
+  },
+  headerActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px'
+  },
+  currentSaveIndicator: {
+    padding: '6px 12px',
+    background: 'rgba(34, 197, 94, 0.15)',
+    border: '1px solid rgba(34, 197, 94, 0.3)',
+    borderRadius: '6px'
+  },
+  currentSaveName: {
+    fontSize: '12px',
+    color: '#86efac',
+    fontWeight: '500'
+  },
+  saveButton: {
+    padding: '8px 16px',
+    borderRadius: '8px',
+    border: '1px solid #27272a',
+    fontWeight: '600',
+    cursor: 'pointer',
+    background: '#18181b',
+    color: '#60a5fa',
+    transition: 'all 0.2s',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    fontSize: '14px'
+  },
+  savePanelContainer: {
+    background: '#18181b',
+    borderBottom: '1px solid #27272a',
+    padding: '16px 24px'
   },
   main: {
     maxWidth: '1200px',
