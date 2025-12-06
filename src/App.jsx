@@ -250,8 +250,8 @@ const styles = {
     padding: '24px',
     textAlign: 'center',
     borderTop: '1px solid #27272a',
-    color: '#52525b',
-    fontSize: '12px'
+    color: '#a1a1aa',
+    fontSize: '13px'
   }
 };
 

@@ -1,37 +1,44 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { FIRMNESSES, SIZES, DEFAULT_ANNUAL_REVENUE } from '../lib/constants';
 
 function SaveLoadPanel({ inventory, annualRevenue, onLoad }) {
   const [saves, setSaves] = useState([]);
   const [saveName, setSaveName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [showPanel, setShowPanel] = useState(false);
 
-  // Fetch saves on mount and when panel opens
+  const fetchSaves = useCallback(async () => {
+    setError(null);
+    try {
+      const res = await fetch('/api/saves');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to load saves');
+      }
+      const data = await res.json();
+      setSaves(data);
+    } catch (err) {
+      console.error('Failed to fetch saves:', err);
+      setError('Could not load saves. Check your connection.');
+    }
+  }, []);
+
+  // Fetch saves when panel opens
   useEffect(() => {
     if (showPanel) {
       fetchSaves();
     }
-  }, [showPanel]);
-
-  const fetchSaves = async () => {
-    try {
-      const res = await fetch('/api/saves');
-      if (res.ok) {
-        const data = await res.json();
-        setSaves(data);
-      }
-    } catch (err) {
-      console.error('Failed to fetch saves:', err);
-    }
-  };
+  }, [showPanel, fetchSaves]);
 
   const handleSave = async () => {
     if (!saveName.trim()) {
-      alert('Please enter a name for this save');
+      setError('Please enter a name for this save');
       return;
     }
 
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch('/api/saves', {
         method: 'POST',
@@ -43,35 +50,61 @@ function SaveLoadPanel({ inventory, annualRevenue, onLoad }) {
         })
       });
 
-      if (res.ok) {
-        setSaveName('');
-        fetchSaves();
-      } else {
-        alert('Failed to save');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to save');
       }
+
+      setSaveName('');
+      setError(null);
+      fetchSaves();
     } catch (err) {
-      alert('Failed to save: ' + err.message);
+      console.error('Save error:', err);
+      setError(err.message || 'Failed to save. Try again.');
     }
     setLoading(false);
   };
 
   const handleLoad = (save) => {
+    // Validate save data before loading
+    if (!save.inventory || typeof save.inventory !== 'object') {
+      setError('Invalid save data');
+      return;
+    }
+
+    // Check structure
+    const hasValidStructure = FIRMNESSES.every(f =>
+      save.inventory[f] &&
+      SIZES.every(s => typeof save.inventory[f][s] === 'number')
+    );
+
+    if (!hasValidStructure) {
+      setError('Save data has invalid structure');
+      return;
+    }
+
     onLoad({
       inventory: save.inventory,
-      annualRevenue: save.annual_revenue
+      annualRevenue: save.annual_revenue || DEFAULT_ANNUAL_REVENUE
     });
     setShowPanel(false);
+    setError(null);
   };
 
   const handleDelete = async (id, e) => {
     e.stopPropagation();
     if (!confirm('Delete this save?')) return;
 
+    setError(null);
     try {
-      await fetch(`/api/saves?id=${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/saves?id=${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        throw new Error('Failed to delete');
+      }
       fetchSaves();
     } catch (err) {
-      console.error('Failed to delete:', err);
+      console.error('Delete error:', err);
+      setError('Failed to delete. Try again.');
     }
   };
 
@@ -103,6 +136,14 @@ function SaveLoadPanel({ inventory, annualRevenue, onLoad }) {
 
       {showPanel && (
         <div style={styles.panel}>
+          {/* Error Display */}
+          {error && (
+            <div style={styles.error}>
+              {error}
+              <button onClick={() => setError(null)} style={styles.errorClose}>×</button>
+            </div>
+          )}
+
           {/* Save Section */}
           <div style={styles.saveSection}>
             <input
@@ -112,11 +153,15 @@ function SaveLoadPanel({ inventory, annualRevenue, onLoad }) {
               onChange={(e) => setSaveName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSave()}
               style={styles.input}
+              maxLength={255}
             />
             <button
               onClick={handleSave}
               disabled={loading}
-              style={styles.saveButton}
+              style={{
+                ...styles.saveButton,
+                ...(loading ? styles.saveButtonDisabled : {})
+              }}
             >
               {loading ? 'Saving...' : 'Save Current'}
             </button>
@@ -142,8 +187,9 @@ function SaveLoadPanel({ inventory, annualRevenue, onLoad }) {
                   <button
                     onClick={(e) => handleDelete(save.id, e)}
                     style={styles.deleteButton}
+                    aria-label={`Delete save: ${save.name}`}
                   >
-                    x
+                    ×
                   </button>
                 </div>
               ))
@@ -174,8 +220,27 @@ const styles = {
     background: '#18181b',
     border: '1px solid #27272a',
     borderRadius: '12px',
-    padding: '16px',
-    animation: 'fadeIn 0.2s ease'
+    padding: '16px'
+  },
+  error: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '10px 14px',
+    marginBottom: '12px',
+    background: 'rgba(239, 68, 68, 0.15)',
+    border: '1px solid rgba(239, 68, 68, 0.3)',
+    borderRadius: '6px',
+    color: '#fca5a5',
+    fontSize: '13px'
+  },
+  errorClose: {
+    background: 'none',
+    border: 'none',
+    color: '#fca5a5',
+    fontSize: '18px',
+    cursor: 'pointer',
+    padding: '0 4px'
   },
   saveSection: {
     display: 'flex',
@@ -201,7 +266,12 @@ const styles = {
     borderRadius: '6px',
     color: '#000',
     cursor: 'pointer',
-    whiteSpace: 'nowrap'
+    whiteSpace: 'nowrap',
+    transition: 'opacity 0.2s'
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
+    cursor: 'not-allowed'
   },
   savesList: {
     maxHeight: '300px',
@@ -210,7 +280,7 @@ const styles = {
   empty: {
     padding: '20px',
     textAlign: 'center',
-    color: '#71717a',
+    color: '#a1a1aa',
     fontSize: '14px'
   },
   saveItem: {
@@ -237,18 +307,21 @@ const styles = {
   },
   saveMeta: {
     fontSize: '12px',
-    color: '#71717a'
+    color: '#a1a1aa'
   },
   deleteButton: {
-    width: '24px',
-    height: '24px',
+    width: '32px',
+    height: '32px',
     padding: 0,
-    fontSize: '14px',
+    fontSize: '18px',
     background: 'transparent',
     border: '1px solid #3f3f46',
     borderRadius: '4px',
-    color: '#71717a',
-    cursor: 'pointer'
+    color: '#a1a1aa',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
   }
 };
 

@@ -165,13 +165,13 @@ const styles = {
   table: {
     width: '100%',
     borderCollapse: 'collapse',
-    fontSize: '12px',
+    fontSize: '13px',
     fontFamily: 'monospace'
   },
   th: {
     padding: '10px 8px',
     textAlign: 'center',
-    color: '#71717a',
+    color: '#a1a1aa',
     fontWeight: '600',
     borderBottom: '1px solid #27272a',
     whiteSpace: 'nowrap',
@@ -193,7 +193,7 @@ const styles = {
     padding: '8px 12px',
     color: '#a1a1aa',
     borderBottom: '1px solid #27272a',
-    fontSize: '11px',
+    fontSize: '12px',
     whiteSpace: 'nowrap'
   },
   tdValue: {
@@ -210,8 +210,8 @@ const styles = {
     gap: '16px',
     flexWrap: 'wrap',
     marginTop: '16px',
-    fontSize: '11px',
-    color: '#71717a'
+    fontSize: '12px',
+    color: '#a1a1aa'
   },
   legendItem: {
     display: 'flex',

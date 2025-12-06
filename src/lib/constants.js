@@ -53,8 +53,8 @@ export const BASE_SKU_MONTHLY_USAGE = Object.freeze({
 });
 
 // Baseline annual revenue that the BASE rates represent
-// 80/month = 20/week × $2,800 = $56,000/week × 52 = $2.912M/year
-export const BASELINE_ANNUAL_REVENUE = 2912000;
+// Calculated from: 80 units/month × 12 months × $2,800 = $2.688M/year
+export const BASELINE_ANNUAL_REVENUE = BASE_TOTAL_MONTHLY_SALES * 12 * MATTRESS_AVERAGE_PRICE;
 
 // Function to calculate scaled usage rates based on selected annual revenue
 export function getScaledUsageRates(annualRevenue) {
