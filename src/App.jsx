@@ -16,6 +16,7 @@ import HealthAlert from './components/HealthAlert';
 import InventoryEditor from './components/InventoryEditor';
 import ForecastTable from './components/ForecastTable';
 import SaveLoadPanel from './components/SaveLoadPanel';
+import DecisionSummary from './components/DecisionSummary';
 
 function App() {
   const [inventory, setInventory] = useState(DEFAULT_INVENTORY);
@@ -175,6 +176,9 @@ function App() {
 
         {/* Health Alert - Shows overall inventory status */}
         <HealthAlert inventory={inventory} order={order} usageRates={usageRates} />
+
+        {/* Decision Summary - Shows WHY this order with before/after coverage */}
+        <DecisionSummary inventory={inventory} order={order} usageRates={usageRates} />
 
         {/* Hero Section - Recommended Order */}
         <OrderHero

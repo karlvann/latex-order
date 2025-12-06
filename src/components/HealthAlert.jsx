@@ -2,6 +2,14 @@ import React from 'react';
 import { SIZES, FIRMNESSES, FIRMNESS_LABELS, COVERAGE_THRESHOLDS } from '../lib/constants';
 import { findFirstStockout, calculateProjection, getAllSKUCoverages } from '../lib/algorithms';
 
+// Convert months to approximate weeks for urgency
+function formatTimeUrgent(months) {
+  const weeks = Math.round(months * 4.3);
+  if (weeks <= 4) return `${weeks} weeks`;
+  if (weeks <= 8) return `${weeks} weeks (~${months} months)`;
+  return `${months} months`;
+}
+
 export default function HealthAlert({ inventory, order, usageRates = null }) {
   const projections = calculateProjection(inventory, order, 12, usageRates);
   const firstStockout = findFirstStockout(projections);
@@ -16,27 +24,30 @@ export default function HealthAlert({ inventory, order, usageRates = null }) {
   let status, statusColor, statusBg, message, icon;
 
   if (firstStockout && firstStockout.month <= 3) {
-    // Stockout before container arrives
+    // Stockout before container arrives - CRITICAL URGENCY
     status = 'CRITICAL';
     statusColor = '#ef4444';
     statusBg = 'rgba(239, 68, 68, 0.1)';
     icon = '🚨';
     const [size, firmness] = [firstStockout.size, firstStockout.firmness];
-    message = `${size} ${FIRMNESS_LABELS[firmness]} runs out in month ${firstStockout.month} — before container arrives!`;
+    const weeksUntil = firstStockout.month * 4;
+    message = `${size} ${FIRMNESS_LABELS[firmness]} runs out in ~${weeksUntil} weeks — BEFORE container arrives! Order immediately.`;
   } else if (criticalSKUs.length > 0) {
-    // Some SKUs critically low
+    // Some SKUs critically low - find the worst one for messaging
+    const [worstKey, worstCov] = criticalSKUs[0];
+    const [worstSize, worstFirmness] = worstKey.split('_');
     status = 'WARNING';
     statusColor = '#f97316';
     statusBg = 'rgba(249, 115, 22, 0.1)';
     icon = '⚠️';
-    message = `${criticalSKUs.length} SKU${criticalSKUs.length > 1 ? 's' : ''} below 2 months coverage. Order recommended.`;
+    message = `${criticalSKUs.length} SKU${criticalSKUs.length > 1 ? 's' : ''} critically low. ${worstSize} ${worstFirmness} has only ${formatTimeUrgent(worstCov)} of stock. Order now.`;
   } else if (firstStockout) {
     // Stockout after container but within forecast
     status = 'CAUTION';
     statusColor = '#eab308';
     statusBg = 'rgba(234, 179, 8, 0.1)';
     icon = '📊';
-    message = `Projected stockout at month ${firstStockout.month}. Consider ordering larger container.`;
+    message = `Projected stockout at month ${firstStockout.month}. Plan next order accordingly.`;
   } else {
     // All healthy
     status = 'HEALTHY';

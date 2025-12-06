@@ -172,7 +172,7 @@ export function calculateCoverageEqualizedOrder(inventory, containerSize, usageR
 
     // Iteratively equalize coverage
     let iterations = 0;
-    const MAX_ITERATIONS = 100; // Prevent infinite loops
+    const MAX_ITERATIONS = 200; // Prevent infinite loops (increased for edge cases)
 
     while (remaining > 0 && iterations < MAX_ITERATIONS) {
       iterations++;
