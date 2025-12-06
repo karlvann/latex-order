@@ -127,7 +127,11 @@ function App() {
   return (
     <div style={styles.app}>
       <header style={styles.header}>
-        <h1 style={styles.title}>Latex Order Calculator</h1>
+        <div style={styles.brandRow}>
+          <span style={styles.brandName}>AusBeds</span>
+          <span style={styles.brandDivider}>|</span>
+          <span style={styles.appName}>Latex Order</span>
+        </div>
         <p style={styles.subtitle}>40-Foot Container | Coverage-Equalized Ordering</p>
       </header>
 
@@ -212,27 +216,43 @@ function App() {
 const styles = {
   app: {
     minHeight: '100vh',
-    background: '#09090b',
-    color: '#fafafa',
+    background: '#0a0a0b',
+    color: '#e5e5e5',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
   },
   header: {
-    padding: '32px 24px 24px',
+    padding: '24px 24px 20px',
     textAlign: 'center',
-    borderBottom: '1px solid #27272a'
+    borderBottom: '1px solid #1f1f23',
+    background: 'linear-gradient(180deg, #111113 0%, #0a0a0b 100%)'
   },
-  title: {
-    margin: 0,
-    fontSize: '32px',
+  brandRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '12px',
+    marginBottom: '6px'
+  },
+  brandName: {
+    fontSize: '24px',
     fontWeight: '700',
-    background: 'linear-gradient(135deg, #3b82f6 0%, #22c55e 100%)',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-    backgroundClip: 'text'
+    color: '#3b82f6',
+    letterSpacing: '-0.5px'
+  },
+  brandDivider: {
+    fontSize: '24px',
+    color: '#3f3f46',
+    fontWeight: '300'
+  },
+  appName: {
+    fontSize: '24px',
+    fontWeight: '600',
+    color: '#e5e5e5',
+    letterSpacing: '-0.5px'
   },
   subtitle: {
-    margin: '8px 0 0',
-    fontSize: '14px',
+    margin: 0,
+    fontSize: '13px',
     color: '#71717a'
   },
   main: {
