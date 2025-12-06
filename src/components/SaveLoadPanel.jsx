@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FIRMNESSES, SIZES, DEFAULT_ANNUAL_REVENUE } from '../lib/constants';
 
-function SaveLoadPanel({ inventory, annualRevenue, onLoad }) {
+function SaveLoadPanel({ inventory, annualRevenue, onLoad, currentSave, onSaveCreated }) {
   const [saves, setSaves] = useState([]);
   const [saveName, setSaveName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -55,8 +55,12 @@ function SaveLoadPanel({ inventory, annualRevenue, onLoad }) {
         throw new Error(data.error || 'Failed to save');
       }
 
+      const result = await res.json();
       setSaveName('');
       setError(null);
+      if (onSaveCreated && result) {
+        onSaveCreated(result);
+      }
       fetchSaves();
     } catch (err) {
       console.error('Save error:', err);
@@ -85,7 +89,9 @@ function SaveLoadPanel({ inventory, annualRevenue, onLoad }) {
 
     onLoad({
       inventory: save.inventory,
-      annualRevenue: save.annual_revenue || DEFAULT_ANNUAL_REVENUE
+      annualRevenue: save.annual_revenue || DEFAULT_ANNUAL_REVENUE,
+      name: save.name,
+      date: save.created_at
     });
     setShowPanel(false);
     setError(null);
@@ -125,14 +131,33 @@ function SaveLoadPanel({ inventory, annualRevenue, onLoad }) {
     return `$${millions.toFixed(1)}M`;
   };
 
+  const formatSaveDate = (dateStr) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-AU', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
   return (
     <div style={styles.container}>
-      <button
-        onClick={() => setShowPanel(!showPanel)}
-        style={styles.toggleButton}
-      >
-        {showPanel ? 'Close' : 'Save / Load'}
-      </button>
+      <div style={styles.topRow}>
+        <button
+          onClick={() => setShowPanel(!showPanel)}
+          style={styles.toggleButton}
+        >
+          {showPanel ? 'Close' : 'Save / Load'}
+        </button>
+
+        {currentSave && (
+          <div style={styles.currentSave}>
+            <span style={styles.currentSaveName}>{currentSave.name}</span>
+            <span style={styles.currentSaveDate}>{formatSaveDate(currentSave.date)}</span>
+          </div>
+        )}
+      </div>
 
       {showPanel && (
         <div style={styles.panel}>
@@ -204,6 +229,30 @@ function SaveLoadPanel({ inventory, annualRevenue, onLoad }) {
 const styles = {
   container: {
     marginBottom: '24px'
+  },
+  topRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    flexWrap: 'wrap'
+  },
+  currentSave: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    padding: '8px 16px',
+    background: 'rgba(34, 197, 94, 0.1)',
+    border: '1px solid rgba(34, 197, 94, 0.3)',
+    borderRadius: '8px'
+  },
+  currentSaveName: {
+    fontSize: '16px',
+    fontWeight: '700',
+    color: '#22c55e'
+  },
+  currentSaveDate: {
+    fontSize: '13px',
+    color: '#a1a1aa'
   },
   toggleButton: {
     padding: '10px 20px',

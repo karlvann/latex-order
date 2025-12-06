@@ -22,6 +22,7 @@ function App() {
   const [containerSize, setContainerSize] = useState(DEFAULT_CONTAINER_SIZE);
   const [annualRevenue, setAnnualRevenue] = useState(DEFAULT_ANNUAL_REVENUE);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [currentSave, setCurrentSave] = useState(null); // Track loaded save
 
   // Auto-load the most recent save on startup
   useEffect(() => {
@@ -38,6 +39,7 @@ function App() {
             if (latest.annual_revenue) {
               setAnnualRevenue(latest.annual_revenue);
             }
+            setCurrentSave({ name: latest.name, date: latest.created_at });
           }
         }
       } catch (err) {
@@ -105,6 +107,9 @@ function App() {
   const handleLoadSave = (saveData) => {
     setInventory(saveData.inventory);
     setAnnualRevenue(saveData.annualRevenue);
+    if (saveData.name && saveData.date) {
+      setCurrentSave({ name: saveData.name, date: saveData.date });
+    }
   };
 
   const formatAnnualRevenue = (value) => {
@@ -131,6 +136,8 @@ function App() {
           inventory={inventory}
           annualRevenue={annualRevenue}
           onLoad={handleLoadSave}
+          currentSave={currentSave}
+          onSaveCreated={(save) => setCurrentSave({ name: save.name, date: save.created_at })}
         />
 
         {/* Revenue Selector */}
