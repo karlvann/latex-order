@@ -133,115 +133,59 @@ export default function InventoryMix({ inventory, usageRates }) {
 
 function DemandBreakdown({ usageRates }) {
   const totalMonthly = usageRates?.TOTAL_MONTHLY_SALES ?? 0;
-  const weeklyMattresses = usageRates?.weeklyMattresses ?? 0;
+  const totalWeekly = totalMonthly / 4.33; // Convert monthly to weekly
 
-  // Get monthly usage by size
-  const queenTotal = SIZES.includes('Queen')
-    ? FIRMNESSES.reduce((sum, f) => sum + (usageRates?.SKU_MONTHLY_USAGE?.Queen?.[f] ?? 0), 0)
-    : 0;
-  const kingTotal = SIZES.includes('King')
-    ? FIRMNESSES.reduce((sum, f) => sum + (usageRates?.SKU_MONTHLY_USAGE?.King?.[f] ?? 0), 0)
-    : 0;
-
-  // Calculate percentages
-  const queenPct = totalMonthly > 0 ? Math.round((queenTotal / totalMonthly) * 100) : 0;
-  const kingPct = totalMonthly > 0 ? Math.round((kingTotal / totalMonthly) * 100) : 0;
-
-  // Get firmness breakdown
-  const getBreakdown = (size) => {
-    const sizeTotal = size === 'Queen' ? queenTotal : kingTotal;
-    return FIRMNESSES.map(f => {
-      const units = usageRates?.SKU_MONTHLY_USAGE?.[size]?.[f] ?? 0;
-      const pct = sizeTotal > 0 ? Math.round((units / sizeTotal) * 100) : 0;
-      return { firmness: f, units: Math.round(units * 10) / 10, pct };
-    });
-  };
-
-  const queenBreakdown = getBreakdown('Queen');
-  const kingBreakdown = getBreakdown('King');
-
-  // Calculate medium total percentage
-  const mediumTotal = (usageRates?.SKU_MONTHLY_USAGE?.Queen?.medium ?? 0) +
-                      (usageRates?.SKU_MONTHLY_USAGE?.King?.medium ?? 0);
-  const mediumPct = totalMonthly > 0 ? Math.round((mediumTotal / totalMonthly) * 100) : 0;
-
-  // Calculate firm total percentage
-  const firmTotal = (usageRates?.SKU_MONTHLY_USAGE?.Queen?.firm ?? 0) +
-                    (usageRates?.SKU_MONTHLY_USAGE?.King?.firm ?? 0);
-  const firmPct = totalMonthly > 0 ? Math.round((firmTotal / totalMonthly) * 100) : 0;
+  // Build table data for all variations
+  const variations = [];
+  for (const size of SIZES) {
+    for (const firmness of FIRMNESSES) {
+      const monthlyUnits = usageRates?.SKU_MONTHLY_USAGE?.[size]?.[firmness] ?? 0;
+      const weeklyUnits = monthlyUnits / 4.33;
+      const pct = totalMonthly > 0 ? (monthlyUnits / totalMonthly) * 100 : 0;
+      variations.push({
+        size,
+        firmness,
+        weeklyUnits,
+        pct
+      });
+    }
+  }
 
   return (
     <div style={demandStyles.container}>
       <div style={demandStyles.header}>
-        <h3 style={demandStyles.title}>Monthly Demand Breakdown</h3>
+        <h3 style={demandStyles.title}>Demand Breakdown</h3>
         <div style={demandStyles.badge}>
-          {Math.round(weeklyMattresses)}/wk = {Math.round(totalMonthly)}/mo
+          {totalWeekly.toFixed(1)}/wk total
         </div>
       </div>
 
-      <div style={demandStyles.grid}>
-        {/* Queen Column */}
-        <div style={demandStyles.column}>
-          <div style={demandStyles.sizeHeader}>
-            <span style={demandStyles.sizeName}>QUEEN</span>
-            <span style={demandStyles.sizeStats}>
-              {Math.round(queenTotal)}/mo ({queenPct}%)
-            </span>
-          </div>
-          <div style={demandStyles.sizeBar}>
-            <div style={{ ...demandStyles.sizeBarFill, width: `${queenPct}%` }} />
-          </div>
-          <div style={demandStyles.breakdown}>
-            {queenBreakdown.map(({ firmness, units, pct }) => (
-              <div key={firmness} style={demandStyles.breakdownRow}>
-                <span style={demandStyles.firmnessLabel}>
-                  {firmness.charAt(0).toUpperCase() + firmness.slice(1)}
-                </span>
-                <span style={demandStyles.breakdownStats}>
-                  {units} <span style={demandStyles.pct}>({pct}%)</span>
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Divider */}
-        <div style={demandStyles.divider} />
-
-        {/* King Column */}
-        <div style={demandStyles.column}>
-          <div style={demandStyles.sizeHeader}>
-            <span style={demandStyles.sizeName}>KING</span>
-            <span style={demandStyles.sizeStats}>
-              {Math.round(kingTotal)}/mo ({kingPct}%)
-            </span>
-          </div>
-          <div style={demandStyles.sizeBar}>
-            <div style={{ ...demandStyles.sizeBarFill, width: `${kingPct}%` }} />
-          </div>
-          <div style={demandStyles.breakdown}>
-            {kingBreakdown.map(({ firmness, units, pct }) => (
-              <div key={firmness} style={demandStyles.breakdownRow}>
-                <span style={demandStyles.firmnessLabel}>
-                  {firmness.charAt(0).toUpperCase() + firmness.slice(1)}
-                </span>
-                <span style={demandStyles.breakdownStats}>
-                  {units} <span style={demandStyles.pct}>({pct}%)</span>
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div style={demandStyles.insights}>
-        <span style={demandStyles.insightItem}>
-          💡 Medium = {mediumPct}% of all sales
-        </span>
-        <span style={demandStyles.insightItem}>
-          Firm = {firmPct}% (order sparingly)
-        </span>
-      </div>
+      {/* Table */}
+      <table style={demandStyles.table}>
+        <thead>
+          <tr>
+            <th style={demandStyles.th}>Variation</th>
+            <th style={demandStyles.thRight}>Units/Wk</th>
+            <th style={demandStyles.thRight}>%</th>
+          </tr>
+        </thead>
+        <tbody>
+          {variations.map(({ size, firmness, weeklyUnits, pct }) => (
+            <tr key={`${size}_${firmness}`} style={demandStyles.tr}>
+              <td style={demandStyles.td}>
+                <span style={demandStyles.sizeBadge}>{size}</span>
+                <span style={demandStyles.firmnessBadge}>{firmness.charAt(0).toUpperCase() + firmness.slice(1)}</span>
+              </td>
+              <td style={demandStyles.tdRight}>
+                {weeklyUnits.toFixed(1)}
+              </td>
+              <td style={demandStyles.tdRight}>
+                {pct.toFixed(0)}%
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -249,108 +193,87 @@ function DemandBreakdown({ usageRates }) {
 const demandStyles = {
   container: {
     marginTop: '24px',
-    padding: '20px',
+    padding: '16px',
     background: '#18181b',
     border: '1px solid #27272a',
-    borderRadius: '12px'
+    borderRadius: '12px',
+    maxWidth: '320px'
   },
   header: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '16px'
+    marginBottom: '12px'
   },
   title: {
     margin: 0,
-    fontSize: '14px',
+    fontSize: '13px',
     fontWeight: '600',
     color: '#a1a1aa',
     textTransform: 'uppercase',
     letterSpacing: '0.5px'
   },
   badge: {
-    fontSize: '13px',
+    fontSize: '12px',
     fontWeight: '600',
     color: '#22c55e',
-    padding: '4px 10px',
+    padding: '3px 8px',
     background: 'rgba(34, 197, 94, 0.1)',
     borderRadius: '4px'
   },
-  grid: {
-    display: 'flex',
-    gap: '20px'
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse'
   },
-  column: {
-    flex: 1
+  th: {
+    padding: '6px 8px',
+    fontSize: '10px',
+    fontWeight: '600',
+    color: '#71717a',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+    borderBottom: '1px solid #27272a',
+    textAlign: 'left'
   },
-  divider: {
-    width: '1px',
-    background: '#27272a'
+  thRight: {
+    padding: '6px 8px',
+    fontSize: '10px',
+    fontWeight: '600',
+    color: '#71717a',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+    borderBottom: '1px solid #27272a',
+    textAlign: 'right',
+    width: '70px'
   },
-  sizeHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '8px'
+  tr: {
+    borderBottom: '1px solid #27272a'
   },
-  sizeName: {
-    fontSize: '14px',
-    fontWeight: '700',
+  td: {
+    padding: '8px',
+    fontSize: '13px',
     color: '#fafafa'
   },
-  sizeStats: {
+  tdRight: {
+    padding: '8px',
     fontSize: '13px',
-    color: '#71717a'
-  },
-  sizeBar: {
-    height: '8px',
-    background: '#27272a',
-    borderRadius: '4px',
-    marginBottom: '12px',
-    overflow: 'hidden'
-  },
-  sizeBarFill: {
-    height: '100%',
-    background: 'linear-gradient(90deg, #3b82f6 0%, #22c55e 100%)',
-    borderRadius: '4px',
-    transition: 'width 0.3s ease'
-  },
-  breakdown: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '6px'
-  },
-  breakdownRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  },
-  firmnessLabel: {
-    fontSize: '13px',
-    color: '#a1a1aa'
-  },
-  breakdownStats: {
-    fontSize: '13px',
-    fontWeight: '600',
     color: '#fafafa',
+    textAlign: 'right',
     fontFamily: 'monospace'
   },
-  pct: {
-    color: '#71717a',
-    fontWeight: '400'
+  sizeBadge: {
+    display: 'inline-block',
+    padding: '2px 6px',
+    fontSize: '10px',
+    fontWeight: '600',
+    color: '#fafafa',
+    background: '#3b82f6',
+    borderRadius: '3px',
+    marginRight: '6px'
   },
-  insights: {
-    marginTop: '16px',
-    paddingTop: '12px',
-    borderTop: '1px solid #27272a',
-    display: 'flex',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    gap: '8px'
-  },
-  insightItem: {
+  firmnessBadge: {
     fontSize: '12px',
-    color: '#71717a'
+    color: '#a1a1aa'
   }
 };
 

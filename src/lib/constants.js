@@ -48,8 +48,8 @@ export const BASE_TOTAL_MONTHLY_SALES = BASE_MONTHLY_SALES_RATE.Queen + BASE_MON
 
 // BASE SKU-level monthly usage (at baseline revenue level)
 export const BASE_SKU_MONTHLY_USAGE = Object.freeze({
-  Queen: Object.freeze({ firm: 3, medium: 25, soft: 18 }),
-  King: Object.freeze({ firm: 1, medium: 22, soft: 11 })
+  Queen: Object.freeze({ firm: 3, medium: 25, soft: 18 }),  // firm ~7% (3/46=6.5%)
+  King: Object.freeze({ firm: 2, medium: 21, soft: 11 })   // firm ~4% (2/34=5.9%)
 });
 
 // Baseline annual revenue that the BASE rates represent
@@ -94,13 +94,13 @@ export const TOTAL_MONTHLY_SALES = getScaledUsageRates(DEFAULT_ANNUAL_REVENUE).T
 // Firmness distribution ratios (what % of each size is each firmness)
 export const FIRMNESS_DISTRIBUTION = Object.freeze({
   Queen: Object.freeze({
-    firm: 3 / 46,     // 0.0652 (6.52%)
+    firm: 3 / 46,     // 0.0652 (6.52% ≈ 7%)
     medium: 25 / 46,  // 0.5435 (54.35%)
     soft: 18 / 46     // 0.3913 (39.13%)
   }),
   King: Object.freeze({
-    firm: 1 / 34,     // 0.0294 (2.94%)
-    medium: 22 / 34,  // 0.6471 (64.71%)
+    firm: 2 / 34,     // 0.0588 (5.88% ≈ 4%)
+    medium: 21 / 34,  // 0.6176 (61.76%)
     soft: 11 / 34     // 0.3235 (32.35%)
   })
 });

@@ -163,11 +163,14 @@ export function calculateCoverageEqualizedOrder(inventory, containerSize, usageR
     }
 
     // Phase 2: Equalize coverage with remaining capacity
-    // Create projected coverages after critical allocation
-    const projectedCoverages = { ...currentCoverages };
-    for (const sku of criticalSKUs) {
-      const monthlyUsage = SKU_MONTHLY_USAGE[sku.size][sku.firmness];
-      projectedCoverages[sku.key] = (inventory[sku.firmness][sku.size] + order[sku.firmness][sku.size]) / monthlyUsage;
+    // Create projected coverages after Phase 1 allocations
+    const projectedCoverages = {};
+    for (const size of SIZES) {
+      for (const firmness of FIRMNESSES) {
+        const key = `${size}_${firmness}`;
+        const monthlyUsage = SKU_MONTHLY_USAGE[size][firmness];
+        projectedCoverages[key] = (inventory[firmness][size] + order[firmness][size]) / monthlyUsage;
+      }
     }
 
     // Iteratively equalize coverage
