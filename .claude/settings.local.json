@@ -9,7 +9,10 @@
       "Bash(npm run build:*)",
       "Bash(python3:*)",
       "Bash(npm install:*)",
-      "Bash(git ls-tree:*)"
+      "Bash(git ls-tree:*)",
+      "Bash(yarn install:*)",
+      "Bash(yarn build:*)",
+      "Bash(grep:*)"
     ]
   }
 }

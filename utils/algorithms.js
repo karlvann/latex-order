@@ -6,9 +6,9 @@ import {
   FIRMNESSES,
   DEFAULT_USAGE_RATES,
   CRITICAL_THRESHOLD_MONTHS
-} from './constants';
+} from './constants'
 
-const DEFAULT_SKU_MONTHLY_USAGE = DEFAULT_USAGE_RATES.SKU_MONTHLY_USAGE;
+const DEFAULT_SKU_MONTHLY_USAGE = DEFAULT_USAGE_RATES.SKU_MONTHLY_USAGE
 
 /**
  * Calculate months of coverage for a specific SKU
@@ -19,15 +19,15 @@ const DEFAULT_SKU_MONTHLY_USAGE = DEFAULT_USAGE_RATES.SKU_MONTHLY_USAGE;
  * @returns {number} Months of coverage (clamped to 0 minimum)
  */
 export function calculateSKUCoverage(stock, size, firmness, usageRates = null) {
-  const SKU_MONTHLY_USAGE = usageRates?.SKU_MONTHLY_USAGE || DEFAULT_SKU_MONTHLY_USAGE;
-  const monthlyUsage = SKU_MONTHLY_USAGE[size]?.[firmness];
+  const SKU_MONTHLY_USAGE = usageRates?.SKU_MONTHLY_USAGE || DEFAULT_SKU_MONTHLY_USAGE
+  const monthlyUsage = SKU_MONTHLY_USAGE[size]?.[firmness]
 
   // Guard against invalid data
-  if (!monthlyUsage || monthlyUsage <= 0) return Infinity;
-  if (typeof stock !== 'number' || isNaN(stock)) return 0;
+  if (!monthlyUsage || monthlyUsage <= 0) return Infinity
+  if (typeof stock !== 'number' || isNaN(stock)) return 0
 
-  const coverage = stock / monthlyUsage;
-  return Math.max(0, coverage); // Never return negative coverage
+  const coverage = stock / monthlyUsage
+  return Math.max(0, coverage) // Never return negative coverage
 }
 
 /**
@@ -38,18 +38,18 @@ export function calculateSKUCoverage(stock, size, firmness, usageRates = null) {
  * @returns {number} Months of coverage
  */
 export function calculateSizeCoverage(inventory, size, usageRates = null) {
-  const SKU_MONTHLY_USAGE = usageRates?.SKU_MONTHLY_USAGE || DEFAULT_SKU_MONTHLY_USAGE;
+  const SKU_MONTHLY_USAGE = usageRates?.SKU_MONTHLY_USAGE || DEFAULT_SKU_MONTHLY_USAGE
 
   const totalStock = FIRMNESSES.reduce((sum, f) => {
-    const stock = inventory[f]?.[size];
-    return sum + (typeof stock === 'number' && !isNaN(stock) ? Math.max(0, stock) : 0);
-  }, 0);
+    const stock = inventory[f]?.[size]
+    return sum + (typeof stock === 'number' && !isNaN(stock) ? Math.max(0, stock) : 0)
+  }, 0)
 
   // Calculate total monthly sales for this size by summing all firmnesses
-  const monthlySales = FIRMNESSES.reduce((sum, f) => sum + (SKU_MONTHLY_USAGE[size]?.[f] || 0), 0);
-  if (!monthlySales || monthlySales <= 0) return 0;
+  const monthlySales = FIRMNESSES.reduce((sum, f) => sum + (SKU_MONTHLY_USAGE[size]?.[f] || 0), 0)
+  if (!monthlySales || monthlySales <= 0) return 0
 
-  return totalStock / monthlySales;
+  return totalStock / monthlySales
 }
 
 /**
@@ -59,17 +59,17 @@ export function calculateSizeCoverage(inventory, size, usageRates = null) {
  * @returns {object} Coverage by SKU { Queen_firm: 2.5, ... }
  */
 export function getAllSKUCoverages(inventory, usageRates = null) {
-  const coverages = {};
+  const coverages = {}
 
   for (const size of SIZES) {
     for (const firmness of FIRMNESSES) {
-      const key = `${size}_${firmness}`;
-      const stock = inventory[firmness]?.[size] ?? 0;
-      coverages[key] = calculateSKUCoverage(stock, size, firmness, usageRates);
+      const key = `${size}_${firmness}`
+      const stock = inventory[firmness]?.[size] ?? 0
+      coverages[key] = calculateSKUCoverage(stock, size, firmness, usageRates)
     }
   }
 
-  return coverages;
+  return coverages
 }
 
 /**
@@ -78,17 +78,17 @@ export function getAllSKUCoverages(inventory, usageRates = null) {
  * @returns {{ key: string, coverage: number }} Lowest coverage SKU
  */
 function findLowestCoverageSKU(coverages) {
-  let minKey = null;
-  let minCoverage = Infinity;
+  let minKey = null
+  let minCoverage = Infinity
 
   for (const [key, coverage] of Object.entries(coverages)) {
     if (coverage < minCoverage) {
-      minCoverage = coverage;
-      minKey = key;
+      minCoverage = coverage
+      minKey = key
     }
   }
 
-  return { key: minKey, coverage: minCoverage };
+  return { key: minKey, coverage: minCoverage }
 }
 
 /**
@@ -103,10 +103,10 @@ function findLowestCoverageSKU(coverages) {
  * @returns {{ order: object, metadata: object }} Order quantities and analysis metadata
  */
 export function calculateCoverageEqualizedOrder(inventory, containerSize, usageRates = null) {
-  const SKU_MONTHLY_USAGE = usageRates?.SKU_MONTHLY_USAGE || DEFAULT_SKU_MONTHLY_USAGE;
+  const SKU_MONTHLY_USAGE = usageRates?.SKU_MONTHLY_USAGE || DEFAULT_SKU_MONTHLY_USAGE
 
   // Validate inputs
-  const validContainerSize = Math.max(0, Math.round(containerSize) || 0);
+  const validContainerSize = Math.max(0, Math.round(containerSize) || 0)
 
   if (validContainerSize === 0) {
     return {
@@ -117,130 +117,130 @@ export function calculateCoverageEqualizedOrder(inventory, containerSize, usageR
         coveragesBefore: getAllSKUCoverages(inventory, usageRates),
         coveragesAfter: getAllSKUCoverages(inventory, usageRates)
       }
-    };
+    }
   }
 
   // Initialize order
-  const order = createEmptyOrder();
-  let remaining = validContainerSize;
+  const order = createEmptyOrder()
+  let remaining = validContainerSize
 
   // Calculate current coverages
-  const currentCoverages = getAllSKUCoverages(inventory, usageRates);
+  const currentCoverages = getAllSKUCoverages(inventory, usageRates)
 
   // Check if all SKUs are already above critical threshold
-  const allHealthy = Object.values(currentCoverages).every(c => c >= CRITICAL_THRESHOLD_MONTHS);
+  const allHealthy = Object.values(currentCoverages).every(c => c >= CRITICAL_THRESHOLD_MONTHS)
 
   // Phase 1: Cover critical deficits (SKUs below threshold)
-  const criticalSKUs = [];
+  const criticalSKUs = []
   for (const [key, coverage] of Object.entries(currentCoverages)) {
     if (coverage < CRITICAL_THRESHOLD_MONTHS) {
-      const [size, firmness] = key.split('_');
-      const monthlyUsage = SKU_MONTHLY_USAGE[size][firmness];
-      const deficit = (CRITICAL_THRESHOLD_MONTHS - coverage) * monthlyUsage;
-      criticalSKUs.push({ key, size, firmness, coverage, deficit: Math.ceil(deficit) });
+      const [size, firmness] = key.split('_')
+      const monthlyUsage = SKU_MONTHLY_USAGE[size][firmness]
+      const deficit = (CRITICAL_THRESHOLD_MONTHS - coverage) * monthlyUsage
+      criticalSKUs.push({ key, size, firmness, coverage, deficit: Math.ceil(deficit) })
     }
   }
 
   // Sort by urgency (lowest coverage first)
-  criticalSKUs.sort((a, b) => a.coverage - b.coverage);
+  criticalSKUs.sort((a, b) => a.coverage - b.coverage)
 
   // Allocate to critical SKUs first
-  const totalCriticalDeficit = criticalSKUs.reduce((sum, s) => sum + s.deficit, 0);
+  const totalCriticalDeficit = criticalSKUs.reduce((sum, s) => sum + s.deficit, 0)
 
   if (totalCriticalDeficit >= remaining) {
     // Triage mode: not enough capacity for all critical SKUs
     // Prioritize by urgency (lowest coverage first)
     for (const sku of criticalSKUs) {
-      const allocation = Math.min(sku.deficit, remaining);
-      order[sku.firmness][sku.size] = allocation;
-      remaining -= allocation;
-      if (remaining <= 0) break;
+      const allocation = Math.min(sku.deficit, remaining)
+      order[sku.firmness][sku.size] = allocation
+      remaining -= allocation
+      if (remaining <= 0) break
     }
   } else {
     // Can cover all critical deficits
     for (const sku of criticalSKUs) {
-      order[sku.firmness][sku.size] = sku.deficit;
-      remaining -= sku.deficit;
+      order[sku.firmness][sku.size] = sku.deficit
+      remaining -= sku.deficit
     }
 
     // Phase 2: Equalize coverage with remaining capacity
     // Create projected coverages after Phase 1 allocations
-    const projectedCoverages = {};
+    const projectedCoverages = {}
     for (const size of SIZES) {
       for (const firmness of FIRMNESSES) {
-        const key = `${size}_${firmness}`;
-        const monthlyUsage = SKU_MONTHLY_USAGE[size][firmness];
-        projectedCoverages[key] = (inventory[firmness][size] + order[firmness][size]) / monthlyUsage;
+        const key = `${size}_${firmness}`
+        const monthlyUsage = SKU_MONTHLY_USAGE[size][firmness]
+        projectedCoverages[key] = (inventory[firmness][size] + order[firmness][size]) / monthlyUsage
       }
     }
 
     // Iteratively equalize coverage
-    let iterations = 0;
-    const MAX_ITERATIONS = 200; // Prevent infinite loops (increased for edge cases)
+    let iterations = 0
+    const MAX_ITERATIONS = 200 // Prevent infinite loops (increased for edge cases)
 
     while (remaining > 0 && iterations < MAX_ITERATIONS) {
-      iterations++;
+      iterations++
 
       // Find SKU with lowest projected coverage
-      const { key: minKey, coverage: minCoverage } = findLowestCoverageSKU(projectedCoverages);
-      if (!minKey) break;
+      const { key: minKey, coverage: minCoverage } = findLowestCoverageSKU(projectedCoverages)
+      if (!minKey) break
 
-      const [size, firmness] = minKey.split('_');
-      const monthlyUsage = SKU_MONTHLY_USAGE[size][firmness];
+      const [size, firmness] = minKey.split('_')
+      const monthlyUsage = SKU_MONTHLY_USAGE[size][firmness]
 
       // Find second-lowest coverage (target to equalize to)
-      let secondMinCoverage = Infinity;
+      let secondMinCoverage = Infinity
       for (const [key, coverage] of Object.entries(projectedCoverages)) {
         if (key !== minKey && coverage < secondMinCoverage) {
-          secondMinCoverage = coverage;
+          secondMinCoverage = coverage
         }
       }
 
       // If all equal, add 1 month worth to lowest
       if (secondMinCoverage === Infinity || secondMinCoverage === minCoverage) {
-        secondMinCoverage = minCoverage + 1;
+        secondMinCoverage = minCoverage + 1
       }
 
       // Calculate pieces needed to reach second-lowest coverage
-      const piecesToEqualize = Math.ceil((secondMinCoverage - minCoverage) * monthlyUsage);
-      const allocation = Math.min(Math.max(1, piecesToEqualize), remaining);
+      const piecesToEqualize = Math.ceil((secondMinCoverage - minCoverage) * monthlyUsage)
+      const allocation = Math.min(Math.max(1, piecesToEqualize), remaining)
 
-      order[firmness][size] += allocation;
-      projectedCoverages[minKey] = (inventory[firmness][size] + order[firmness][size]) / monthlyUsage;
-      remaining -= allocation;
+      order[firmness][size] += allocation
+      projectedCoverages[minKey] = (inventory[firmness][size] + order[firmness][size]) / monthlyUsage
+      remaining -= allocation
     }
   }
 
   // Final adjustment: ensure we use exactly containerSize (handle rounding)
-  const totalOrdered = getTotalOrdered(order);
-  const difference = validContainerSize - totalOrdered;
+  const totalOrdered = getTotalOrdered(order)
+  const difference = validContainerSize - totalOrdered
 
   if (difference !== 0) {
     // Add/subtract from SKU with lowest projected coverage
-    const projectedCoverages = {};
+    const projectedCoverages = {}
     for (const size of SIZES) {
       for (const firmness of FIRMNESSES) {
-        const key = `${size}_${firmness}`;
-        const stock = (inventory[firmness]?.[size] ?? 0) + order[firmness][size];
-        const monthlyUsage = SKU_MONTHLY_USAGE[size][firmness];
-        projectedCoverages[key] = stock / monthlyUsage;
+        const key = `${size}_${firmness}`
+        const stock = (inventory[firmness]?.[size] ?? 0) + order[firmness][size]
+        const monthlyUsage = SKU_MONTHLY_USAGE[size][firmness]
+        projectedCoverages[key] = stock / monthlyUsage
       }
     }
 
-    const { key: targetKey } = findLowestCoverageSKU(projectedCoverages);
+    const { key: targetKey } = findLowestCoverageSKU(projectedCoverages)
     if (targetKey) {
-      const [size, firmness] = targetKey.split('_');
-      order[firmness][size] = Math.max(0, order[firmness][size] + difference);
+      const [size, firmness] = targetKey.split('_')
+      order[firmness][size] = Math.max(0, order[firmness][size] + difference)
     }
   }
 
   // Calculate final coverages
-  const coveragesAfter = {};
+  const coveragesAfter = {}
   for (const size of SIZES) {
     for (const firmness of FIRMNESSES) {
-      const key = `${size}_${firmness}`;
-      const finalStock = (inventory[firmness]?.[size] ?? 0) + order[firmness][size];
-      coveragesAfter[key] = calculateSKUCoverage(finalStock, size, firmness, usageRates);
+      const key = `${size}_${firmness}`
+      const finalStock = (inventory[firmness]?.[size] ?? 0) + order[firmness][size]
+      coveragesAfter[key] = calculateSKUCoverage(finalStock, size, firmness, usageRates)
     }
   }
 
@@ -257,7 +257,7 @@ export function calculateCoverageEqualizedOrder(inventory, containerSize, usageR
         ? 'All SKUs already have healthy coverage. This order will increase buffer stock.'
         : null
     }
-  };
+  }
 }
 
 /**
@@ -268,23 +268,23 @@ export function createEmptyOrder() {
     firm: { Queen: 0, King: 0 },
     medium: { Queen: 0, King: 0 },
     soft: { Queen: 0, King: 0 }
-  };
+  }
 }
 
 /**
  * Get total units in an order
  */
 export function getTotalOrdered(order) {
-  let total = 0;
+  let total = 0
   for (const firmness of FIRMNESSES) {
     for (const size of SIZES) {
-      const qty = order[firmness]?.[size];
+      const qty = order[firmness]?.[size]
       if (typeof qty === 'number' && !isNaN(qty)) {
-        total += Math.max(0, qty);
+        total += Math.max(0, qty)
       }
     }
   }
-  return total;
+  return total
 }
 
 /**
@@ -296,42 +296,42 @@ export function getTotalOrdered(order) {
  * @returns {array} Monthly projections
  */
 export function calculateProjection(inventory, order, months = 12, usageRates = null) {
-  const SKU_MONTHLY_USAGE = usageRates?.SKU_MONTHLY_USAGE || DEFAULT_SKU_MONTHLY_USAGE;
-  const projections = [];
+  const SKU_MONTHLY_USAGE = usageRates?.SKU_MONTHLY_USAGE || DEFAULT_SKU_MONTHLY_USAGE
+  const projections = []
 
   for (let month = 0; month <= months; month++) {
-    const monthData = { month };
+    const monthData = { month }
 
     for (const size of SIZES) {
       for (const firmness of FIRMNESSES) {
-        const key = `${size}_${firmness}`;
-        const initialStock = inventory[firmness]?.[size] ?? 0;
-        const monthlyUsage = SKU_MONTHLY_USAGE[size][firmness];
-        const orderQty = order[firmness]?.[size] ?? 0;
+        const key = `${size}_${firmness}`
+        const initialStock = inventory[firmness]?.[size] ?? 0
+        const monthlyUsage = SKU_MONTHLY_USAGE[size][firmness]
+        const orderQty = order[firmness]?.[size] ?? 0
 
-        let stock;
+        let stock
         if (month === 0) {
-          stock = initialStock;
+          stock = initialStock
         } else if (month < 3) {
           // Before container arrival
-          stock = initialStock - (monthlyUsage * month);
+          stock = initialStock - (monthlyUsage * month)
         } else if (month === 3) {
           // Container arrival
-          stock = initialStock - (monthlyUsage * 3) + orderQty;
+          stock = initialStock - (monthlyUsage * 3) + orderQty
         } else {
           // After container arrival
-          const stockAtArrival = initialStock - (monthlyUsage * 3) + orderQty;
-          stock = stockAtArrival - (monthlyUsage * (month - 3));
+          const stockAtArrival = initialStock - (monthlyUsage * 3) + orderQty
+          stock = stockAtArrival - (monthlyUsage * (month - 3))
         }
 
-        monthData[key] = Math.round(stock);
+        monthData[key] = Math.round(stock)
       }
     }
 
-    projections.push(monthData);
+    projections.push(monthData)
   }
 
-  return projections;
+  return projections
 }
 
 /**
@@ -343,19 +343,19 @@ export function findFirstStockout(projections) {
   for (const monthData of projections) {
     for (const size of SIZES) {
       for (const firmness of FIRMNESSES) {
-        const key = `${size}_${firmness}`;
+        const key = `${size}_${firmness}`
         if (monthData[key] < 0) {
           return {
             sku: key,
             month: monthData.month,
             size,
             firmness
-          };
+          }
         }
       }
     }
   }
-  return null;
+  return null
 }
 
 /**
@@ -365,16 +365,16 @@ export function findFirstStockout(projections) {
  * @returns {object} New inventory after order applied
  */
 export function applyOrderToInventory(inventory, order) {
-  const newInventory = {};
+  const newInventory = {}
 
   for (const firmness of FIRMNESSES) {
-    newInventory[firmness] = {};
+    newInventory[firmness] = {}
     for (const size of SIZES) {
-      const currentStock = inventory[firmness]?.[size] ?? 0;
-      const orderQty = order[firmness]?.[size] ?? 0;
-      newInventory[firmness][size] = Math.max(0, currentStock + orderQty);
+      const currentStock = inventory[firmness]?.[size] ?? 0
+      const orderQty = order[firmness]?.[size] ?? 0
+      newInventory[firmness][size] = Math.max(0, currentStock + orderQty)
     }
   }
 
-  return newInventory;
+  return newInventory
 }
