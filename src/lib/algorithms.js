@@ -4,11 +4,11 @@
 import {
   SIZES,
   FIRMNESSES,
-  SKU_MONTHLY_USAGE as DEFAULT_SKU_MONTHLY_USAGE,
-  MONTHLY_SALES_RATE as DEFAULT_MONTHLY_SALES_RATE,
-  CRITICAL_THRESHOLD_MONTHS,
-  FIRMNESS_DISTRIBUTION
+  DEFAULT_USAGE_RATES,
+  CRITICAL_THRESHOLD_MONTHS
 } from './constants';
+
+const DEFAULT_SKU_MONTHLY_USAGE = DEFAULT_USAGE_RATES.SKU_MONTHLY_USAGE;
 
 /**
  * Calculate months of coverage for a specific SKU
@@ -34,18 +34,19 @@ export function calculateSKUCoverage(stock, size, firmness, usageRates = null) {
  * Calculate aggregate coverage for a size (Queen or King)
  * @param {object} inventory - Full inventory object
  * @param {string} size - 'Queen' or 'King'
- * @param {object} usageRates - Optional custom usage rates (from getScaledUsageRates)
+ * @param {object} usageRates - Optional custom usage rates
  * @returns {number} Months of coverage
  */
 export function calculateSizeCoverage(inventory, size, usageRates = null) {
-  const MONTHLY_SALES_RATE = usageRates?.MONTHLY_SALES_RATE || DEFAULT_MONTHLY_SALES_RATE;
+  const SKU_MONTHLY_USAGE = usageRates?.SKU_MONTHLY_USAGE || DEFAULT_SKU_MONTHLY_USAGE;
 
   const totalStock = FIRMNESSES.reduce((sum, f) => {
     const stock = inventory[f]?.[size];
     return sum + (typeof stock === 'number' && !isNaN(stock) ? Math.max(0, stock) : 0);
   }, 0);
 
-  const monthlySales = MONTHLY_SALES_RATE[size];
+  // Calculate total monthly sales for this size by summing all firmnesses
+  const monthlySales = FIRMNESSES.reduce((sum, f) => sum + (SKU_MONTHLY_USAGE[size]?.[f] || 0), 0);
   if (!monthlySales || monthlySales <= 0) return 0;
 
   return totalStock / monthlySales;

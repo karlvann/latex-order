@@ -4,16 +4,12 @@ import {
   FIRMNESSES,
   DEFAULT_CONTAINER_SIZE,
   DEFAULT_INVENTORY,
-  ANNUAL_REVENUE_OPTIONS,
-  DEFAULT_ANNUAL_REVENUE,
-  MATTRESS_AVERAGE_PRICE,
-  getScaledUsageRates
+  DEFAULT_USAGE_RATES
 } from './lib/constants';
 import { calculateCoverageEqualizedOrder } from './lib/algorithms';
 import OrderHero from './components/OrderHero';
 import InventoryMix from './components/InventoryMix';
 import HealthAlert from './components/HealthAlert';
-import InventoryEditor from './components/InventoryEditor';
 import ForecastTable from './components/ForecastTable';
 import SaveLoadPanel from './components/SaveLoadPanel';
 import DecisionSummary from './components/DecisionSummary';
@@ -21,41 +17,68 @@ import DecisionSummary from './components/DecisionSummary';
 function App() {
   const [inventory, setInventory] = useState(DEFAULT_INVENTORY);
   const [containerSize, setContainerSize] = useState(DEFAULT_CONTAINER_SIZE);
-  const [annualRevenue, setAnnualRevenue] = useState(DEFAULT_ANNUAL_REVENUE);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [currentSave, setCurrentSave] = useState(null); // Track loaded save
+  const [usageRates, setUsageRates] = useState(DEFAULT_USAGE_RATES);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [currentSave, setCurrentSave] = useState(null);
   const [showSavePanel, setShowSavePanel] = useState(false);
+  const [lastFetched, setLastFetched] = useState(null);
 
-  // Auto-load the most recent save on startup
-  useEffect(() => {
-    const loadLastSave = async () => {
-      try {
-        const res = await fetch('/api/saves?' + Date.now()); // Cache bust
-        if (res.ok) {
-          const saves = await res.json();
-          if (saves.length > 0) {
-            const latest = saves[0]; // Already sorted by created_at DESC
-            if (latest.inventory) {
-              setInventory(latest.inventory);
-            }
-            if (latest.annual_revenue) {
-              setAnnualRevenue(latest.annual_revenue);
-            }
-            setCurrentSave({ name: latest.name, date: latest.created_at });
-          }
-        }
-      } catch (err) {
-        console.log('No saved state to restore');
+  // Fetch inventory and sales data from Directus
+  const fetchDirectusData = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/directus?' + Date.now());
+      if (!res.ok) {
+        throw new Error(`Failed to fetch: ${res.status}`);
       }
-      setIsLoaded(true);
-    };
-    loadLastSave();
-  }, []);
+      const data = await res.json();
 
-  // Calculate scaled usage rates based on selected annual revenue
-  const usageRates = useMemo(() => {
-    return getScaledUsageRates(annualRevenue);
-  }, [annualRevenue]);
+      if (data.inventory) {
+        setInventory(data.inventory);
+      }
+
+      if (data.sales?.monthlyUsage) {
+        // Transform from [firmness][size] to [size][firmness] format expected by algorithms
+        const monthlyUsage = data.sales.monthlyUsage;
+        const SKU_MONTHLY_USAGE = {
+          Queen: {
+            firm: monthlyUsage.firm?.Queen || 0,
+            medium: monthlyUsage.medium?.Queen || 0,
+            soft: monthlyUsage.soft?.Queen || 0
+          },
+          King: {
+            firm: monthlyUsage.firm?.King || 0,
+            medium: monthlyUsage.medium?.King || 0,
+            soft: monthlyUsage.soft?.King || 0
+          }
+        };
+
+        const totalMonthly =
+          Object.values(SKU_MONTHLY_USAGE).reduce((sum, size) =>
+            sum + Object.values(size).reduce((s, v) => s + v, 0), 0);
+
+        setUsageRates({
+          SKU_MONTHLY_USAGE,
+          TOTAL_MONTHLY_SALES: totalMonthly,
+          periodDays: data.sales.periodDays || 60,
+          rawCounts: data.sales.rawCounts
+        });
+      }
+
+      setLastFetched(new Date());
+    } catch (err) {
+      console.error('Failed to fetch from Directus:', err);
+      setError(err.message);
+    }
+    setIsLoading(false);
+  };
+
+  // Fetch on mount
+  useEffect(() => {
+    fetchDirectusData();
+  }, []);
 
   // Calculate the recommended order using coverage-equalized algorithm
   const { order, metadata } = useMemo(() => {
@@ -65,7 +88,8 @@ function App() {
 
   const handleCopyOrder = () => {
     const lines = ['Recommended Latex Order (40-foot Container)', ''];
-    lines.push(`Annual Target: $${(annualRevenue / 1000000).toFixed(2)}M ($${(usageRates.weeklyRevenue / 1000).toFixed(0)}K/week → ${usageRates.weeklyMattresses} mattresses/week)`);
+    lines.push(`Based on ${usageRates.periodDays || 60}-day sales lookback`);
+    lines.push(`Monthly demand: ${usageRates.TOTAL_MONTHLY_SALES?.toFixed(1) || 'N/A'} units`);
     lines.push('');
 
     FIRMNESSES.forEach(firmness => {
@@ -108,21 +132,20 @@ function App() {
 
   const handleLoadSave = (saveData) => {
     setInventory(saveData.inventory);
-    setAnnualRevenue(saveData.annualRevenue);
+    if (saveData.usageRates) {
+      setUsageRates(saveData.usageRates);
+    }
     if (saveData.name && saveData.date) {
       setCurrentSave({ name: saveData.name, date: saveData.date });
     }
   };
 
-  const formatAnnualRevenue = (value) => {
-    const millions = value / 1000000;
-    return millions % 1 === 0 ? `$${millions}M` : `$${millions.toFixed(2)}M`.replace('.00', '').replace(/(\.\d)0$/, '$1');
-  };
-
-  // Format dropdown option to show weekly revenue and mattresses
-  const formatDropdownOption = (annualValue) => {
-    const rates = getScaledUsageRates(annualValue);
-    return `$${(rates.weeklyRevenue / 1000).toFixed(0)}K/wk → ${Math.round(rates.weeklyMattresses)} mattresses`;
+  const formatLastFetched = () => {
+    if (!lastFetched) return '';
+    return lastFetched.toLocaleTimeString('en-AU', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   return (
@@ -140,6 +163,15 @@ function App() {
         </div>
 
         <div style={styles.headerActions}>
+          {lastFetched && (
+            <div style={styles.syncIndicator}>
+              <span style={styles.syncDot}></span>
+              <span style={styles.syncText}>Synced {formatLastFetched()}</span>
+              <button onClick={fetchDirectusData} style={styles.refreshButton} title="Refresh data">
+                ↻
+              </button>
+            </div>
+          )}
           {currentSave && (
             <div style={styles.currentSaveIndicator}>
               <span style={styles.currentSaveName}>{currentSave.name}</span>
@@ -160,7 +192,7 @@ function App() {
         <div style={styles.savePanelContainer}>
           <SaveLoadPanel
             inventory={inventory}
-            annualRevenue={annualRevenue}
+            usageRates={usageRates}
             onLoad={handleLoadSave}
             currentSave={currentSave}
             onSaveCreated={(save) => setCurrentSave({ name: save.name, date: save.created_at })}
@@ -169,66 +201,101 @@ function App() {
       )}
 
       <main style={styles.main}>
-
-        {/* Revenue Selector */}
-        <div style={styles.revenueSection}>
-          <div style={styles.revenueHeader}>
-            <label style={styles.revenueLabel}>Weekly Sales</label>
-            <div style={styles.revenueInfo}>
-              = {formatAnnualRevenue(annualRevenue)}/year | {usageRates.TOTAL_MONTHLY_SALES} units/month
-            </div>
+        {/* Error Display */}
+        {error && (
+          <div style={styles.errorBanner}>
+            <span>Failed to fetch live data: {error}</span>
+            <button onClick={fetchDirectusData} style={styles.retryButton}>Retry</button>
           </div>
-          <div style={styles.revenueSelector}>
-            <select
-              value={annualRevenue}
-              onChange={(e) => setAnnualRevenue(parseInt(e.target.value))}
-              style={styles.revenueDropdown}
-            >
-              {ANNUAL_REVENUE_OPTIONS.map(value => (
-                <option key={value} value={value}>
-                  {formatDropdownOption(value)}
-                </option>
-              ))}
-            </select>
-            <div style={styles.revenueNote}>
-              @ ${MATTRESS_AVERAGE_PRICE.toLocaleString()} avg
-            </div>
+        )}
+
+        {/* Loading State */}
+        {isLoading ? (
+          <div style={styles.loadingContainer}>
+            <div style={styles.loadingSpinner}></div>
+            <p style={styles.loadingText}>Fetching inventory and sales data...</p>
           </div>
-        </div>
+        ) : (
+          <>
+            {/* Demand Summary - Shows actual sales data */}
+            <div style={styles.demandSection}>
+              <div style={styles.demandHeader}>
+                <label style={styles.demandLabel}>Demand (42-Day Lookback)</label>
+                <div style={styles.demandInfo}>
+                  {usageRates.TOTAL_MONTHLY_SALES?.toFixed(1) || 0} units/month
+                </div>
+              </div>
+              <div style={styles.demandGrid}>
+                {FIRMNESSES.map(firmness => (
+                  <div key={firmness} style={styles.demandCard}>
+                    <div style={styles.demandCardTitle}>{firmness}</div>
+                    <div style={styles.demandCardStats}>
+                      <span>Q: {usageRates.SKU_MONTHLY_USAGE?.Queen?.[firmness]?.toFixed(1) || 0}/mo</span>
+                      <span>K: {usageRates.SKU_MONTHLY_USAGE?.King?.[firmness]?.toFixed(1) || 0}/mo</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-        {/* 12-Month Forecast - Primary view */}
-        <ForecastTable
-          inventory={inventory}
-          order={order}
-          usageRates={usageRates}
-        />
+            {/* 12-Month Forecast - Primary view */}
+            <ForecastTable
+              inventory={inventory}
+              order={order}
+              usageRates={usageRates}
+            />
 
-        {/* Health Alert - Shows overall inventory status */}
-        <HealthAlert inventory={inventory} order={order} usageRates={usageRates} />
+            {/* Health Alert - Shows overall inventory status */}
+            <HealthAlert inventory={inventory} order={order} usageRates={usageRates} />
 
-        {/* Decision Summary - Shows WHY this order with before/after coverage */}
-        <DecisionSummary inventory={inventory} order={order} usageRates={usageRates} />
+            {/* Decision Summary - Shows WHY this order with before/after coverage */}
+            <DecisionSummary inventory={inventory} order={order} usageRates={usageRates} />
 
-        {/* Hero Section - Recommended Order */}
-        <OrderHero
-          order={order}
-          containerSize={containerSize}
-          onContainerChange={setContainerSize}
-          onCopyOrder={handleCopyOrder}
-          onExportCSV={handleExportCSV}
-        />
+            {/* Hero Section - Recommended Order */}
+            <OrderHero
+              order={order}
+              containerSize={containerSize}
+              onContainerChange={setContainerSize}
+              onCopyOrder={handleCopyOrder}
+              onExportCSV={handleExportCSV}
+            />
 
-        {/* Inventory Editor */}
-        <InventoryEditor
-          inventory={inventory}
-          onChange={setInventory}
-        />
+            {/* Current Inventory Display (read-only) */}
+            <div style={styles.inventoryDisplay}>
+              <div style={styles.inventoryHeader}>
+                <span style={styles.inventoryTitle}>Current Inventory</span>
+                <span style={styles.inventoryTotal}>
+                  {FIRMNESSES.reduce((sum, f) =>
+                    sum + SIZES.reduce((s, sz) => s + (inventory[f]?.[sz] || 0), 0), 0)} pieces
+                </span>
+              </div>
+              <div style={styles.inventoryGrid}>
+                {FIRMNESSES.map(firmness => (
+                  <div key={firmness} style={styles.inventoryCard}>
+                    <div style={styles.inventoryCardTitle}>{firmness}</div>
+                    <div style={styles.inventoryCardStats}>
+                      <div style={styles.inventoryStat}>
+                        <span style={styles.inventoryStatLabel}>Queen</span>
+                        <span style={styles.inventoryStatValue}>{inventory[firmness]?.Queen || 0}</span>
+                      </div>
+                      <div style={styles.inventoryStat}>
+                        <span style={styles.inventoryStatLabel}>King</span>
+                        <span style={styles.inventoryStatValue}>{inventory[firmness]?.King || 0}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p style={styles.inventoryNote}>Data synced from Directus CMS</p>
+            </div>
 
-        {/* Inventory Mix - Coverage runway analysis */}
-        <InventoryMix
-          inventory={inventory}
-          usageRates={usageRates}
-        />
+            {/* Inventory Mix - Coverage runway analysis */}
+            <InventoryMix
+              inventory={inventory}
+              usageRates={usageRates}
+            />
+          </>
+        )}
       </main>
 
       <footer style={styles.footer}>
@@ -301,15 +368,42 @@ const styles = {
     alignItems: 'center',
     gap: '16px'
   },
+  syncIndicator: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '6px 12px',
+    background: 'rgba(34, 197, 94, 0.1)',
+    border: '1px solid rgba(34, 197, 94, 0.2)',
+    borderRadius: '6px'
+  },
+  syncDot: {
+    width: '8px',
+    height: '8px',
+    borderRadius: '50%',
+    background: '#22c55e'
+  },
+  syncText: {
+    fontSize: '12px',
+    color: '#86efac'
+  },
+  refreshButton: {
+    background: 'none',
+    border: 'none',
+    color: '#86efac',
+    fontSize: '16px',
+    cursor: 'pointer',
+    padding: '0 4px'
+  },
   currentSaveIndicator: {
     padding: '6px 12px',
-    background: 'rgba(34, 197, 94, 0.15)',
-    border: '1px solid rgba(34, 197, 94, 0.3)',
+    background: 'rgba(59, 130, 246, 0.15)',
+    border: '1px solid rgba(59, 130, 246, 0.3)',
     borderRadius: '6px'
   },
   currentSaveName: {
     fontSize: '12px',
-    color: '#86efac',
+    color: '#93c5fd',
     fontWeight: '500'
   },
   saveButton: {
@@ -336,48 +430,154 @@ const styles = {
     margin: '0 auto',
     padding: '24px'
   },
-  revenueSection: {
+  errorBanner: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '12px 16px',
+    marginBottom: '24px',
+    background: 'rgba(239, 68, 68, 0.15)',
+    border: '1px solid rgba(239, 68, 68, 0.3)',
+    borderRadius: '8px',
+    color: '#fca5a5'
+  },
+  retryButton: {
+    padding: '6px 12px',
+    background: 'rgba(239, 68, 68, 0.2)',
+    border: '1px solid rgba(239, 68, 68, 0.4)',
+    borderRadius: '4px',
+    color: '#fca5a5',
+    cursor: 'pointer',
+    fontSize: '13px'
+  },
+  loadingContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '80px 20px'
+  },
+  loadingSpinner: {
+    width: '40px',
+    height: '40px',
+    border: '3px solid #27272a',
+    borderTop: '3px solid #d97706',
+    borderRadius: '50%',
+    animation: 'spin 1s linear infinite'
+  },
+  loadingText: {
+    marginTop: '16px',
+    color: '#71717a',
+    fontSize: '14px'
+  },
+  demandSection: {
     background: '#18181b',
     border: '1px solid #27272a',
     borderRadius: '12px',
     padding: '20px',
     marginBottom: '24px'
   },
-  revenueHeader: {
+  demandHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '12px'
+    marginBottom: '16px'
   },
-  revenueLabel: {
+  demandLabel: {
     fontSize: '16px',
     fontWeight: '600',
     color: '#fafafa'
   },
-  revenueInfo: {
+  demandInfo: {
     fontSize: '14px',
     color: '#22c55e',
     fontWeight: '500'
   },
-  revenueSelector: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px'
+  demandGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: '12px'
   },
-  revenueDropdown: {
-    padding: '12px 16px',
-    fontSize: '16px',
-    fontWeight: '600',
+  demandCard: {
     background: '#0a0a0a',
-    border: '2px solid #d97706',
+    border: '1px solid #27272a',
     borderRadius: '8px',
-    color: '#fafafa',
-    cursor: 'pointer',
-    minWidth: '260px'
+    padding: '12px'
   },
-  revenueNote: {
+  demandCardTitle: {
+    fontSize: '12px',
+    color: '#71717a',
+    textTransform: 'uppercase',
+    marginBottom: '8px'
+  },
+  demandCardStats: {
+    display: 'flex',
+    justifyContent: 'space-between',
     fontSize: '13px',
-    color: '#71717a'
+    color: '#d4d4d8'
+  },
+  inventoryDisplay: {
+    background: '#0a0a0a',
+    border: '1px solid #27272a',
+    borderRadius: '12px',
+    padding: '20px',
+    marginBottom: '16px'
+  },
+  inventoryHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '16px'
+  },
+  inventoryTitle: {
+    fontSize: '15px',
+    fontWeight: '600',
+    color: '#fafafa'
+  },
+  inventoryTotal: {
+    fontSize: '14px',
+    color: '#a1a1aa'
+  },
+  inventoryGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: '12px'
+  },
+  inventoryCard: {
+    background: '#18181b',
+    border: '1px solid #27272a',
+    borderRadius: '8px',
+    padding: '12px'
+  },
+  inventoryCardTitle: {
+    fontSize: '12px',
+    color: '#71717a',
+    textTransform: 'uppercase',
+    marginBottom: '8px'
+  },
+  inventoryCardStats: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px'
+  },
+  inventoryStat: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    fontSize: '13px'
+  },
+  inventoryStatLabel: {
+    color: '#a1a1aa'
+  },
+  inventoryStatValue: {
+    color: '#fafafa',
+    fontWeight: '600',
+    fontFamily: 'monospace'
+  },
+  inventoryNote: {
+    marginTop: '12px',
+    fontSize: '11px',
+    color: '#52525b',
+    fontStyle: 'italic'
   },
   footer: {
     padding: '24px',
@@ -388,5 +588,14 @@ const styles = {
   }
 };
 
-export default App;
+// Add keyframes for spinner animation
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`;
+document.head.appendChild(styleSheet);
 
+export default App;

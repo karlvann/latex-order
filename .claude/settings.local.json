@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(git -C /Users/alexmurray/Sites/ausbeds-latex-order log --oneline -15)",
+      "Bash(npm install)",
+      "Bash(npm run lint:*)",
+      "Bash(curl:*)"
+    ]
+  }
+}

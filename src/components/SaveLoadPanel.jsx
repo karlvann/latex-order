@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FIRMNESSES, SIZES, DEFAULT_ANNUAL_REVENUE } from '../lib/constants';
+import { FIRMNESSES, SIZES } from '../lib/constants';
 
-function SaveLoadPanel({ inventory, annualRevenue, onLoad, currentSave, onSaveCreated }) {
+function SaveLoadPanel({ inventory, usageRates, onLoad, currentSave, onSaveCreated }) {
   const [saves, setSaves] = useState([]);
   const [saveName, setSaveName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -47,7 +47,7 @@ function SaveLoadPanel({ inventory, annualRevenue, onLoad, currentSave, onSaveCr
         body: JSON.stringify({
           name: saveName.trim(),
           inventory,
-          annualRevenue
+          usageRates
         })
       });
 
@@ -90,7 +90,7 @@ function SaveLoadPanel({ inventory, annualRevenue, onLoad, currentSave, onSaveCr
 
     onLoad({
       inventory: save.inventory,
-      annualRevenue: save.annual_revenue || DEFAULT_ANNUAL_REVENUE,
+      usageRates: save.usage_rates || null,
       name: save.name,
       date: save.created_at
     });
@@ -126,10 +126,9 @@ function SaveLoadPanel({ inventory, annualRevenue, onLoad, currentSave, onSaveCr
     });
   };
 
-  const formatRevenue = (value) => {
-    if (!value) return '';
-    const millions = value / 1000000;
-    return `$${millions.toFixed(1)}M`;
+  const formatDemand = (usageRates) => {
+    if (!usageRates?.TOTAL_MONTHLY_SALES) return '';
+    return `${usageRates.TOTAL_MONTHLY_SALES.toFixed(0)} units/mo`;
   };
 
   const formatSaveDate = (dateStr) => {
@@ -207,7 +206,7 @@ function SaveLoadPanel({ inventory, annualRevenue, onLoad, currentSave, onSaveCr
                   <div style={styles.saveInfo}>
                     <span style={styles.saveName}>{save.name}</span>
                     <span style={styles.saveMeta}>
-                      {formatDate(save.created_at)} {formatRevenue(save.annual_revenue) && `| ${formatRevenue(save.annual_revenue)}`}
+                      {formatDate(save.created_at)} {formatDemand(save.usage_rates) && `| ${formatDemand(save.usage_rates)}`}
                     </span>
                   </div>
                   <button

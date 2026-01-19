@@ -9,10 +9,18 @@ async function initTable() {
       id SERIAL PRIMARY KEY,
       name VARCHAR(255) NOT NULL,
       inventory JSONB NOT NULL,
-      annual_revenue INTEGER NOT NULL,
+      usage_rates JSONB,
+      annual_revenue INTEGER,
       created_at TIMESTAMP DEFAULT NOW()
     )
   `;
+
+  // Add usage_rates column if it doesn't exist (migration for existing tables)
+  try {
+    await sql`ALTER TABLE saves ADD COLUMN IF NOT EXISTS usage_rates JSONB`;
+  } catch (e) {
+    // Column might already exist, ignore error
+  }
 }
 
 // Validate inventory structure
@@ -43,7 +51,7 @@ export default async function handler(req, res) {
     // GET - List all saves
     if (req.method === 'GET') {
       const saves = await sql`
-        SELECT id, name, inventory, annual_revenue, created_at
+        SELECT id, name, inventory, usage_rates, annual_revenue, created_at
         FROM saves
         ORDER BY created_at DESC
         LIMIT 50
@@ -53,7 +61,7 @@ export default async function handler(req, res) {
 
     // POST - Create new save
     if (req.method === 'POST') {
-      const { name, inventory, annualRevenue } = req.body;
+      const { name, inventory, usageRates, annualRevenue } = req.body;
 
       // Validate name
       if (!name || typeof name !== 'string' || name.length > 255) {
@@ -65,15 +73,17 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Invalid inventory structure' });
       }
 
-      // Validate annual revenue
-      const revenue = parseInt(annualRevenue, 10) || 0;
-      if (revenue < 0 || revenue > 100000000) {
-        return res.status(400).json({ error: 'Invalid annual revenue' });
-      }
+      // Support both old and new format
+      const revenue = annualRevenue ? parseInt(annualRevenue, 10) : null;
 
       const result = await sql`
-        INSERT INTO saves (name, inventory, annual_revenue)
-        VALUES (${name.trim().slice(0, 255)}, ${JSON.stringify(inventory)}, ${revenue})
+        INSERT INTO saves (name, inventory, usage_rates, annual_revenue)
+        VALUES (
+          ${name.trim().slice(0, 255)},
+          ${JSON.stringify(inventory)},
+          ${usageRates ? JSON.stringify(usageRates) : null},
+          ${revenue}
+        )
         RETURNING id, name, created_at
       `;
 
