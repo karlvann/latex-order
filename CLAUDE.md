@@ -18,27 +18,28 @@ AusBeds Latex Order Calculator - a React + Vite web application that calculates 
 ## Tech Stack
 
 - **Frontend**: React 19 + Vite 7
-- **Backend**: Serverless API route handlers (`api/saves.js`)
-- **Database**: Neon PostgreSQL (`@neondatabase/serverless`)
+- **Backend**: Serverless API route (`api/directus.js`) fetching live data from Directus CMS
 - **Styling**: Inline CSS-in-JS (no external framework)
 
 ## Architecture
 
 ### Data Flow
 ```
-App.jsx (top-level state)
-  ├─> src/lib/constants.js (business rules, rates, defaults)
-  ├─> src/lib/algorithms.js (coverage-equalized ordering logic)
-  └─> src/components/* (consume computed data, emit changes)
+Directus CMS (source of truth)
+  └─> api/directus.js (fetches inventory + sales data)
+        └─> App.jsx (top-level state)
+              ├─> src/lib/constants.js (business rules, defaults)
+              ├─> src/lib/algorithms.js (coverage-equalized ordering logic)
+              └─> src/components/* (consume computed data)
 ```
 
 ### Key Modules
 
-**`src/lib/constants.js`** - Business rules
-- Base monthly sales rates scaled by annual revenue target
-- SKU-level usage rates by firmness (firm/medium/soft) and size (Queen/King)
+**`src/lib/constants.js`** - Business rules & defaults
+- Default inventory and usage rates (used while Directus fetch is in progress)
 - Lead time (3 months), safety buffer (1 month), critical threshold (4 months)
-- `getScaledUsageRates(annualRevenue)` - dynamically adjusts all rates
+- Container size constraints (100-500 units)
+- SKU definitions: firmness (firm/medium/soft) × size (Queen/King)
 
 **`src/lib/algorithms.js`** - Core ordering logic
 - `calculateCoverageEqualizedOrder()` - two-phase algorithm:
@@ -47,30 +48,24 @@ App.jsx (top-level state)
 - `calculateProjection()` - 12-month forward projection (container arrives month 3)
 - `getAllSKUCoverages()` - coverage months for all 6 SKU combinations
 
-**`api/saves.js`** - Serverless CRUD endpoint
-- GET: List saves (limit 50)
-- POST: Create save (validates name, inventory structure, revenue)
-- DELETE: Remove save by ID
+**`api/directus.js`** - Serverless data fetcher
+- Fetches live inventory counts from Directus CMS
+- Calculates monthly usage rates from 42-day sales lookback
+- Returns combined inventory + demand data for the algorithm
 
 ### State Management
 
 All state lives in `App.jsx` using React hooks:
-- `inventory` - stock levels by firmness/size
+- `inventory` - stock levels by firmness/size (from Directus)
+- `usageRates` - monthly demand rates by SKU (from Directus sales data)
 - `containerSize` - order quantity (100-500 units)
-- `annualRevenue` - revenue target for rate scaling
-- `currentSave` - loaded save metadata
+- `lastFetched` - timestamp of last CMS sync
 
 ### UI Design System
 
 Dark theme with amber/orange accents (`#d97706`, `#fbbf24`). Components use inline CSS objects. Header uses glassmorphism with sticky positioning.
 
-## Database Schema
+## Environment Variables
 
-PostgreSQL `saves` table:
-- `id` (serial PK)
-- `name` (varchar 255)
-- `inventory` (JSONB)
-- `annual_revenue` (integer)
-- `created_at` (timestamp)
-
-Environment variable: `DATABASE_URL` in `.env`
+- `DIRECTUS_URL` - Directus CMS base URL
+- `DIRECTUS_TOKEN` - API access token for Directus

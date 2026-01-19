@@ -5,7 +5,9 @@
       "Bash(git -C /Users/alexmurray/Sites/ausbeds-latex-order log --oneline -15)",
       "Bash(npm install)",
       "Bash(npm run lint:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(npm run build:*)",
+      "Bash(python3:*)"
     ]
   }
 }

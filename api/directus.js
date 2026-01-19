@@ -11,6 +11,16 @@ const LATEX_SKUS = [
   'latexsoftking'
 ];
 
+// Map firmness number to display category (for Top Products)
+function getFirmnessCategory(level) {
+  if (level >= 2 && level <= 4) return 'Soft';
+  if (level >= 5 && level <= 7) return 'Medium';
+  if (level >= 8 && level <= 10) return 'Firm';
+  if (level >= 11 && level <= 13) return 'Very Firm';
+  if (level >= 14 && level <= 19) return 'Super Firm';
+  return null;
+}
+
 // Parse mattress SKU format: {range}{firmness}{size}
 // e.g., "cloud3kingsingle", "aurora12double", "cooper15queen"
 function parseOrderSKU(sku) {
@@ -21,6 +31,8 @@ function parseOrderSKU(sku) {
   // Check if it's a mattress SKU (starts with cloud, aurora, or cooper)
   const rangeMatch = lowerSku.match(/^(cloud|aurora|cooper)/);
   if (!rangeMatch) return null;
+
+  const range = rangeMatch[1];
 
   // Extract firmness level (number after range name)
   const firmnessMatch = lowerSku.match(/^(?:cloud|aurora|cooper)(\d+)/);
@@ -59,17 +71,29 @@ function parseOrderSKU(sku) {
     return null;
   }
 
-  return { latexFirmness, latexSize };
+  // Get display firmness category
+  const firmnessCategory = getFirmnessCategory(firmnessLevel);
+
+  // Capitalize range name for display
+  const displayRange = range.charAt(0).toUpperCase() + range.slice(1);
+
+  // Capitalize size for display
+  const displaySize = size.charAt(0).toUpperCase() + size.slice(1);
+
+  return { latexFirmness, latexSize, displayRange, displaySize, firmnessCategory };
 }
 
-// Calculate demand from orders (60-day lookback → monthly rate)
+// Calculate demand from orders (42-day lookback → monthly rate)
 function calculateDemandFromOrders(orders) {
-  // Initialize counters
+  // Initialize counters for latex demand
   const demand = {
     firm: { Queen: 0, King: 0 },
     medium: { Queen: 0, King: 0 },
     soft: { Queen: 0, King: 0 }
   };
+
+  // Track top products: key = "Range Size Firmness", value = count
+  const topProducts = {};
 
   // Count latex usage from each order
   for (const order of orders) {
@@ -82,9 +106,18 @@ function calculateDemandFromOrders(orders) {
 
       if (parsed) {
         demand[parsed.latexFirmness][parsed.latexSize]++;
+
+        // Track for top products display
+        const productKey = `${parsed.displayRange} ${parsed.displaySize} ${parsed.firmnessCategory}`;
+        topProducts[productKey] = (topProducts[productKey] || 0) + 1;
       }
     }
   }
+
+  // Convert topProducts to sorted array
+  const topProductsList = Object.entries(topProducts)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count);
 
   // Convert to monthly rate (30 days / lookbackDays)
   // For 42 days: 30/42 ≈ 0.714
@@ -109,7 +142,8 @@ function calculateDemandFromOrders(orders) {
   return {
     rawCounts: demand,
     monthlyUsage: monthlyDemand,
-    periodDays: lookbackDays
+    periodDays: lookbackDays,
+    topProducts: topProductsList
   };
 }
 

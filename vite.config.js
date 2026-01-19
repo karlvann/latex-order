@@ -82,62 +82,43 @@ export default defineConfig(({ mode }) => {
               let sales = {
                 rawCounts: { firm: { Queen: 0, King: 0 }, medium: { Queen: 0, King: 0 }, soft: { Queen: 0, King: 0 } },
                 monthlyUsage: { firm: { Queen: 0, King: 0 }, medium: { Queen: 0, King: 0 }, soft: { Queen: 0, King: 0 } },
-                periodDays: lookbackDays
+                periodDays: lookbackDays,
+                topProducts: []
               }
 
               if (ordersRes.ok) {
                 const ordersData = await ordersRes.json()
                 const orders = ordersData.data || []
 
-                // DEBUG: Tally all mattress SKUs sold in last 42 days (6 weeks)
-                const skuTally = {}
-                const mattressCount = { total: 0, byRange: { cloud: 0, aurora: 0, cooper: 0 } }
-                const mattressOrderTotals = [] // Track order totals for AOV calculation
-
-                // Filter to mattress orders and count latex usage
+                // Count latex usage and track individual product sales
                 const demand = {
                   firm: { Queen: 0, King: 0 },
                   medium: { Queen: 0, King: 0 },
                   soft: { Queen: 0, King: 0 }
                 }
+                const topProductsMap = {}
 
                 for (const order of orders) {
                   if (!order.skus || !Array.isArray(order.skus)) continue
 
-                  let orderHasMattress = false
                   for (const skuItem of order.skus) {
-                    // Navigate the m2m structure: skus[].skus_id.sku
                     const skuValue = skuItem?.skus_id?.sku
                     if (!skuValue) continue
 
                     const lowerSku = skuValue.toLowerCase()
 
                     // Check if mattress SKU
-                    if (!/^(cloud|aurora|cooper)/.test(lowerSku)) continue
+                    const match = lowerSku.match(/^(cloud|aurora|cooper)(\d+)(single|kingsingle|double|queen|king)$/)
+                    if (!match) continue
 
-                    // DEBUG: Count this SKU
-                    skuTally[lowerSku] = (skuTally[lowerSku] || 0) + 1
-                    mattressCount.total++
-                    orderHasMattress = true
-                    if (lowerSku.startsWith('cloud')) mattressCount.byRange.cloud++
-                    else if (lowerSku.startsWith('aurora')) mattressCount.byRange.aurora++
-                    else if (lowerSku.startsWith('cooper')) mattressCount.byRange.cooper++
-
-                    // Extract firmness level
-                    const firmnessMatch = lowerSku.match(/^(?:cloud|aurora|cooper)(\d+)/)
-                    if (!firmnessMatch) continue
-                    const firmnessLevel = parseInt(firmnessMatch[1], 10)
-
-                    // Extract size
-                    const sizeMatch = lowerSku.match(/^(?:cloud|aurora|cooper)\d+(single|kingsingle|double|queen|king)$/)
-                    if (!sizeMatch) continue
-                    const size = sizeMatch[1]
+                    const [, range, firmnessStr, size] = match
+                    const firmness = parseInt(firmnessStr, 10)
 
                     // Map firmness level to latex type (2-7=soft, 8-12=medium, 13-19=firm)
                     let latexFirmness
-                    if (firmnessLevel >= 2 && firmnessLevel <= 7) latexFirmness = 'soft'
-                    else if (firmnessLevel >= 8 && firmnessLevel <= 12) latexFirmness = 'medium'
-                    else if (firmnessLevel >= 13 && firmnessLevel <= 19) latexFirmness = 'firm'
+                    if (firmness >= 2 && firmness <= 7) latexFirmness = 'soft'
+                    else if (firmness >= 8 && firmness <= 12) latexFirmness = 'medium'
+                    else if (firmness >= 13 && firmness <= 19) latexFirmness = 'firm'
                     else continue
 
                     // Map size to latex size
@@ -147,51 +128,30 @@ export default defineConfig(({ mode }) => {
                     else continue
 
                     demand[latexFirmness][latexSize]++
-                  }
 
-                  // Track order total for AOV calculation
-                  if (orderHasMattress && order.total) {
-                    const orderTotal = parseFloat(order.total)
-                    if (!isNaN(orderTotal) && orderTotal > 0) {
-                      mattressOrderTotals.push(orderTotal)
-                    }
+                    // Map firmness to display category: 2-4=Soft, 5-7=Medium, 8-10=Firm, 11-13=Very Firm, 14-19=Super Firm
+                    let firmnessCategory
+                    if (firmness >= 2 && firmness <= 4) firmnessCategory = 'Soft'
+                    else if (firmness >= 5 && firmness <= 7) firmnessCategory = 'Medium'
+                    else if (firmness >= 8 && firmness <= 10) firmnessCategory = 'Firm'
+                    else if (firmness >= 11 && firmness <= 13) firmnessCategory = 'Very Firm'
+                    else if (firmness >= 14 && firmness <= 19) firmnessCategory = 'Super Firm'
+
+                    const displayRange = range.charAt(0).toUpperCase() + range.slice(1)
+                    const displaySize = size.charAt(0).toUpperCase() + size.slice(1)
+                    const productKey = `${displayRange} ${displaySize} ${firmnessCategory}`
+
+                    topProductsMap[productKey] = (topProductsMap[productKey] || 0) + 1
                   }
                 }
 
-                // Calculate average order value for mattress orders
-                const avgOrderValue = mattressOrderTotals.length > 0
-                  ? mattressOrderTotals.reduce((sum, val) => sum + val, 0) / mattressOrderTotals.length
-                  : 0
-
-                // DEBUG: Log the tally sorted by count
-                // console.log(`\n========== MATTRESS SALES (Last ${lookbackDays} Days / 6 Weeks) ==========`)
-                // console.log(`Total orders fetched: ${orders.length}`)
-                // console.log(`Mattress orders: ${mattressOrderTotals.length}`)
-                // console.log(`Total mattresses sold: ${mattressCount.total}`)
-                // console.log(`Average Order Value (mattress orders): $${avgOrderValue.toFixed(2)}`)
-                // console.log(`By range: Cloud=${mattressCount.byRange.cloud}, Aurora=${mattressCount.byRange.aurora}, Cooper=${mattressCount.byRange.cooper}`)
-                // console.log('\nTop SKUs by quantity:')
-                const sortedSkus = Object.entries(skuTally).sort((a, b) => b[1] - a[1])
-                sortedSkus.forEach(([sku, count]) => {
-                  // Parse for display
-                  const match = sku.match(/^(cloud|aurora|cooper)(\d+)(single|kingsingle|double|queen|king)$/)
-                  if (match) {
-                    const [, , firmness, size] = match
-                    const latexType = firmness >= 2 && firmness <= 7 ? 'SOFT' : firmness >= 8 && firmness <= 12 ? 'MEDIUM' : 'FIRM'
-                    const latexSize = ['queen', 'double', 'kingsingle'].includes(size) ? 'Queen' : 'King'
-                    // console.log(`  ${count}x ${sku} → ${latexType} ${latexSize}`)
-                  } else {
-                    // console.log(`  ${count}x ${sku} (not parsed)`)
-                  }
-                })
-                // console.log(`\nLATEX DEMAND (${lookbackDays}-day raw counts):`)
-                // console.log(`  Firm:   Queen=${demand.firm.Queen}, King=${demand.firm.King}`)
-                // console.log(`  Medium: Queen=${demand.medium.Queen}, King=${demand.medium.King}`)
-                // console.log(`  Soft:   Queen=${demand.soft.Queen}, King=${demand.soft.King}`)
-                // console.log('==================================================\n')
+                // Convert topProducts to sorted array
+                const topProducts = Object.entries(topProductsMap)
+                  .map(([name, count]) => ({ name, count }))
+                  .sort((a, b) => b.count - a.count)
 
                 // Convert to monthly rate (30 days / lookbackDays)
-                const monthlyMultiplier = 30 / lookbackDays  // 30/42 ≈ 0.714
+                const monthlyMultiplier = 30 / lookbackDays
                 sales = {
                   rawCounts: demand,
                   monthlyUsage: {
@@ -208,7 +168,8 @@ export default defineConfig(({ mode }) => {
                       King: Math.round(demand.soft.King * monthlyMultiplier * 10) / 10
                     }
                   },
-                  periodDays: lookbackDays
+                  periodDays: lookbackDays,
+                  topProducts
                 }
               }
 

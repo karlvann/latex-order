@@ -11,7 +11,6 @@ import OrderHero from './components/OrderHero';
 import InventoryMix from './components/InventoryMix';
 import HealthAlert from './components/HealthAlert';
 import ForecastTable from './components/ForecastTable';
-import SaveLoadPanel from './components/SaveLoadPanel';
 import DecisionSummary from './components/DecisionSummary';
 
 function App() {
@@ -20,8 +19,6 @@ function App() {
   const [usageRates, setUsageRates] = useState(DEFAULT_USAGE_RATES);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [currentSave, setCurrentSave] = useState(null);
-  const [showSavePanel, setShowSavePanel] = useState(false);
   const [lastFetched, setLastFetched] = useState(null);
 
   // Fetch inventory and sales data from Directus
@@ -63,7 +60,8 @@ function App() {
           SKU_MONTHLY_USAGE,
           TOTAL_MONTHLY_SALES: totalMonthly,
           periodDays: data.sales.periodDays || 60,
-          rawCounts: data.sales.rawCounts
+          rawCounts: data.sales.rawCounts,
+          topProducts: data.sales.topProducts || []
         });
       }
 
@@ -130,16 +128,6 @@ function App() {
     URL.revokeObjectURL(url);
   };
 
-  const handleLoadSave = (saveData) => {
-    setInventory(saveData.inventory);
-    if (saveData.usageRates) {
-      setUsageRates(saveData.usageRates);
-    }
-    if (saveData.name && saveData.date) {
-      setCurrentSave({ name: saveData.name, date: saveData.date });
-    }
-  };
-
   const formatLastFetched = () => {
     if (!lastFetched) return '';
     return lastFetched.toLocaleTimeString('en-AU', {
@@ -172,33 +160,8 @@ function App() {
               </button>
             </div>
           )}
-          {currentSave && (
-            <div style={styles.currentSaveIndicator}>
-              <span style={styles.currentSaveName}>{currentSave.name}</span>
-            </div>
-          )}
-          <button
-            onClick={() => setShowSavePanel(!showSavePanel)}
-            style={styles.saveButton}
-          >
-            <span>💾</span>
-            <span>Save/Load</span>
-          </button>
         </div>
       </header>
-
-      {/* Save/Load Panel - Slides down from header */}
-      {showSavePanel && (
-        <div style={styles.savePanelContainer}>
-          <SaveLoadPanel
-            inventory={inventory}
-            usageRates={usageRates}
-            onLoad={handleLoadSave}
-            currentSave={currentSave}
-            onSaveCreated={(save) => setCurrentSave({ name: save.name, date: save.created_at })}
-          />
-        </div>
-      )}
 
       <main style={styles.main}>
         {/* Error Display */}
@@ -217,24 +180,50 @@ function App() {
           </div>
         ) : (
           <>
-            {/* Demand Summary - Shows actual sales data */}
-            <div style={styles.demandSection}>
-              <div style={styles.demandHeader}>
-                <label style={styles.demandLabel}>Demand (42-Day Lookback)</label>
-                <div style={styles.demandInfo}>
-                  {usageRates.TOTAL_MONTHLY_SALES?.toFixed(1) || 0} units/month
+            {/* Demand & Top Products Row */}
+            <div style={styles.demandRow}>
+              {/* Demand Summary - Shows actual sales data */}
+              <div style={styles.demandSection}>
+                <div style={styles.demandHeader}>
+                  <label style={styles.demandLabel}>Demand (42-Day Lookback)</label>
+                  <div style={styles.demandInfo}>
+                    {usageRates.TOTAL_MONTHLY_SALES?.toFixed(1) || 0} units/month
+                  </div>
+                </div>
+                <div style={styles.demandGrid6}>
+                  {FIRMNESSES.map(firmness => (
+                    SIZES.map(size => (
+                      <div key={`${firmness}-${size}`} style={styles.demandCard}>
+                        <div style={styles.demandCardTitle}>{firmness} {size}</div>
+                        <div style={styles.demandCardValue}>
+                          {usageRates.SKU_MONTHLY_USAGE?.[size]?.[firmness]?.toFixed(1) || 0}
+                        </div>
+                        <div style={styles.demandCardUnit}>/month</div>
+                      </div>
+                    ))
+                  )).flat()}
                 </div>
               </div>
-              <div style={styles.demandGrid}>
-                {FIRMNESSES.map(firmness => (
-                  <div key={firmness} style={styles.demandCard}>
-                    <div style={styles.demandCardTitle}>{firmness}</div>
-                    <div style={styles.demandCardStats}>
-                      <span>Q: {usageRates.SKU_MONTHLY_USAGE?.Queen?.[firmness]?.toFixed(1) || 0}/mo</span>
-                      <span>K: {usageRates.SKU_MONTHLY_USAGE?.King?.[firmness]?.toFixed(1) || 0}/mo</span>
-                    </div>
+
+              {/* Top Products - Shows individual mattress sales */}
+              <div style={styles.topProductsSection}>
+                <div style={styles.demandHeader}>
+                  <label style={styles.demandLabel}>Top Products (42-Day)</label>
+                  <div style={styles.demandInfo}>
+                    {usageRates.topProducts?.reduce((sum, p) => sum + p.count, 0) || 0} sold
                   </div>
-                ))}
+                </div>
+                <div style={styles.topProductsList}>
+                  {(usageRates.topProducts || []).slice(0, 8).map((product, idx) => (
+                    <div key={idx} style={styles.topProductItem}>
+                      <span style={styles.topProductName}>{product.name}</span>
+                      <span style={styles.topProductCount}>x{product.count}</span>
+                    </div>
+                  ))}
+                  {(!usageRates.topProducts || usageRates.topProducts.length === 0) && (
+                    <div style={styles.topProductEmpty}>No sales data</div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -395,36 +384,6 @@ const styles = {
     cursor: 'pointer',
     padding: '0 4px'
   },
-  currentSaveIndicator: {
-    padding: '6px 12px',
-    background: 'rgba(59, 130, 246, 0.15)',
-    border: '1px solid rgba(59, 130, 246, 0.3)',
-    borderRadius: '6px'
-  },
-  currentSaveName: {
-    fontSize: '12px',
-    color: '#93c5fd',
-    fontWeight: '500'
-  },
-  saveButton: {
-    padding: '8px 16px',
-    borderRadius: '8px',
-    border: '1px solid #27272a',
-    fontWeight: '600',
-    cursor: 'pointer',
-    background: '#18181b',
-    color: '#fbbf24',
-    transition: 'all 0.2s',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    fontSize: '14px'
-  },
-  savePanelContainer: {
-    background: '#18181b',
-    borderBottom: '1px solid #27272a',
-    padding: '16px 24px'
-  },
   main: {
     maxWidth: '1200px',
     margin: '0 auto',
@@ -470,12 +429,17 @@ const styles = {
     color: '#71717a',
     fontSize: '14px'
   },
+  demandRow: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '16px',
+    marginBottom: '24px'
+  },
   demandSection: {
     background: '#18181b',
     border: '1px solid #27272a',
     borderRadius: '12px',
-    padding: '20px',
-    marginBottom: '24px'
+    padding: '20px'
   },
   demandHeader: {
     display: 'flex',
@@ -493,28 +457,73 @@ const styles = {
     color: '#22c55e',
     fontWeight: '500'
   },
-  demandGrid: {
+  demandGrid6: {
     display: 'grid',
     gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: '12px'
+    gap: '10px'
   },
   demandCard: {
     background: '#0a0a0a',
     border: '1px solid #27272a',
     borderRadius: '8px',
-    padding: '12px'
+    padding: '12px',
+    textAlign: 'center'
   },
   demandCardTitle: {
-    fontSize: '12px',
+    fontSize: '10px',
     color: '#71717a',
     textTransform: 'uppercase',
-    marginBottom: '8px'
+    letterSpacing: '0.5px',
+    marginBottom: '6px'
   },
-  demandCardStats: {
+  demandCardValue: {
+    fontSize: '24px',
+    fontWeight: '700',
+    color: '#fbbf24',
+    fontFamily: 'monospace',
+    lineHeight: '1'
+  },
+  demandCardUnit: {
+    fontSize: '11px',
+    color: '#52525b',
+    marginTop: '4px'
+  },
+  topProductsSection: {
+    background: '#18181b',
+    border: '1px solid #27272a',
+    borderRadius: '12px',
+    padding: '20px'
+  },
+  topProductsList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px'
+  },
+  topProductItem: {
     display: 'flex',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '8px 12px',
+    background: '#0a0a0a',
+    border: '1px solid #27272a',
+    borderRadius: '6px'
+  },
+  topProductName: {
     fontSize: '13px',
     color: '#d4d4d8'
+  },
+  topProductCount: {
+    fontSize: '13px',
+    fontWeight: '600',
+    color: '#fbbf24',
+    fontFamily: 'monospace'
+  },
+  topProductEmpty: {
+    fontSize: '13px',
+    color: '#52525b',
+    fontStyle: 'italic',
+    padding: '12px',
+    textAlign: 'center'
   },
   inventoryDisplay: {
     background: '#0a0a0a',
