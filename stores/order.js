@@ -53,9 +53,9 @@ function parseOrderSKU(sku) {
   }
 
   let latexSize
-  if (size === 'queen' || size === 'double' || size === 'kingsingle' || size === 'single') {
+  if (size === 'queen' || size === 'double' || size === 'kingsingle') {
     latexSize = 'Queen'
-  } else if (size === 'king') {
+  } else if (size === 'king' || size === 'single') {
     latexSize = 'King'
   } else {
     return null
