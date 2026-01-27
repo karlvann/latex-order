@@ -20,75 +20,46 @@ AusBeds Latex Order Calculator - a Nuxt 4 web application that calculates optima
 - **Framework**: Nuxt 4 (Vue 3)
 - **Styling**: Tailwind CSS
 - **State Management**: Pinia
-- **CMS Integration**: Directus (via server API route)
+- **CMS Integration**: Directus (via nuxt-directus module)
 - **Icons**: @nuxt/icon (MDI icons)
 - **Package Manager**: Yarn
 
 ## Architecture
 
-### Project Structure
-```
-ausbeds-latex-order/
-├── nuxt.config.js           # Nuxt configuration
-├── tailwind.config.js       # Tailwind color palette & theme
-├── app.vue                  # Root app component
-├── assets/css/main.css      # Tailwind directives & custom styles
-├── components/
-│   ├── OrderHero.vue        # Order table, slider, export buttons
-│   ├── ForecastTable.vue    # 12-month projection, collapsible
-│   ├── HealthAlert.vue      # Status alerts
-│   ├── DecisionSummary.vue  # Before/after coverage charts
-│   ├── InventoryMix.vue     # Stock runway bars
-│   ├── DemandBreakdown.vue  # Demand table
-│   └── ui/
-│       ├── LoadingSpinner.vue
-│       └── ErrorBanner.vue
-├── layouts/default.vue      # Main layout with header
-├── pages/index.vue          # Main page
-├── server/api/directus.get.js  # API route for Directus
-├── stores/order.js          # Pinia store (all state/actions)
-└── utils/
-    ├── constants.js         # Business rules, defaults
-    └── algorithms.js        # Coverage-equalized ordering logic
-```
-
 ### Data Flow
 ```
 Directus CMS (source of truth)
-  └─> server/api/directus.get.js (fetches inventory + sales data)
-        └─> stores/order.js (Pinia store - state management)
-              ├─> utils/constants.js (business rules, defaults)
-              ├─> utils/algorithms.js (coverage-equalized ordering logic)
-              └─> components/* (consume computed data via store)
+  └─> stores/order.js (Pinia store - fetches via nuxt-directus)
+        ├─> utils/constants.js (business rules, defaults)
+        ├─> utils/algorithms.js (coverage-equalized ordering logic)
+        └─> components/* (consume computed data via store)
 ```
 
 ### Key Modules
 
 **`utils/constants.js`** - Business rules & defaults
-- Default inventory and usage rates (used while Directus fetch is in progress)
 - Lead time (3 months), safety buffer (1 month), critical threshold (4 months)
-- Container size constraints (100-500 units)
+- Container size constraints (100-500 units, default 340)
 - SKU definitions: firmness (firm/medium/soft) × size (Queen/King)
+- Coverage thresholds for UI status colors
 
 **`utils/algorithms.js`** - Core ordering logic
 - `calculateCoverageEqualizedOrder()` - two-phase algorithm:
-  - Phase 1: Allocate to SKUs below critical threshold
-  - Phase 2: Equalize coverage across remaining units
+  - Phase 1: Allocate to SKUs below critical threshold (sorted by urgency)
+  - Phase 2: Iteratively equalize coverage across remaining capacity
 - `calculateProjection()` - 12-month forward projection (container arrives month 3)
 - `getAllSKUCoverages()` - coverage months for all 6 SKU combinations
+- `findFirstStockout()` - detects when projected stock goes negative
 
-**`server/api/directus.get.js`** - Server API route
-- Fetches live inventory counts from Directus CMS
+**`stores/order.js`** - Pinia store (central state)
+- Fetches inventory from `skus` collection, sales from `orders` collection
 - Calculates monthly usage rates from 42-day sales lookback
-- Returns combined inventory + demand data for the algorithm
+- Parses mattress SKUs (cloud/aurora/cooper ranges) to map to latex firmness/size
+- Getters: `order`, `orderMetadata`, `totalOrdered`, `totalInventory`
+- Actions: `setContainerSize()`, `fetchDirectusData()`, `copyOrderToClipboard()`, `exportCSV()`
 
-**`stores/order.js`** - Pinia store
-- State: inventory, containerSize, usageRates, isLoading, error, lastFetched
-- Getters: order, orderMetadata, totalOrdered, totalInventory
-- Actions: setContainerSize(), fetchDirectusData(), copyOrderToClipboard(), exportCSV()
-
-### Component Pattern (no emits)
-All components interact with data through the Pinia store:
+### Component Pattern
+All components interact with data through the Pinia store (no props/emits between siblings):
 ```vue
 <script setup>
 import { useOrderStore } from '~/stores/order'
@@ -104,7 +75,7 @@ const handleCopy = () => store.copyOrderToClipboard()
 
 ### UI Design System
 
-Dark theme with amber/orange accents. Custom Tailwind colors:
+Dark theme with amber/orange accents. Custom Tailwind colors defined in `tailwind.config.js`:
 - `background`: #0a0a0b
 - `surface`: #18181b (darker: #0a0a0a, border: #27272a)
 - `amber`: #d97706 (light: #fbbf24)

@@ -1,5 +1,12 @@
 <script setup>
 const store = useOrderStore()
+const { logout } = useDirectusAuth()
+const user = useDirectusUser()
+
+const signOut = async () => {
+  await logout()
+  navigateTo('/')
+}
 </script>
 
 <template>
@@ -26,6 +33,18 @@ const store = useOrderStore()
             title="Refresh data"
           >
             <Icon name="mdi:refresh" class="w-4 h-4" />
+          </button>
+        </div>
+
+        <div v-if="user" class="flex items-center gap-3 pl-3 border-l border-surface-border">
+          <span class="text-xs text-zinc-400">{{ user.email }}</span>
+          <button
+            @click="signOut"
+            class="flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-surface-darker border border-surface-border rounded-md transition-colors"
+            title="Sign out"
+          >
+            <Icon name="mdi:logout" class="w-4 h-4" />
+            <span>Sign out</span>
           </button>
         </div>
       </div>

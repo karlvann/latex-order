@@ -17,7 +17,8 @@ export default defineNuxtConfig({
 
   directus: {
     url: process.env.DIRECTUS_URL,
-    token: process.env.DIRECTUS_TOKEN
+    autoFetch: true,
+    autoRefresh: true
   },
 
   app: {
@@ -27,6 +28,20 @@ export default defineNuxtConfig({
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' }
       ]
+    }
+  },
+
+  routeRules: {
+    '/**': {
+      ssr: false
+    }
+  },
+
+  runtimeConfig: {
+    public: {
+      directus: {
+        url: process.env.DIRECTUS_URL
+      }
     }
   }
 })

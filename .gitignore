@@ -33,3 +33,5 @@ dist
 
 # Vercel
 .vercel
+.git
+.claude 
